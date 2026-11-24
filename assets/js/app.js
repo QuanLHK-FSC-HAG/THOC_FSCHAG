@@ -994,10 +994,6 @@
 
       function rvBankNoteText(){
         var g = rvGradeSel.value;
-        if (g === "11"){
-          rvBankNote.textContent = "Lớp 11: Chưa có ngân hàng câu hỏi — mục ôn tập hiện chỉ có các lớp 6, 7, 8 và 10.";
-          return;
-        }
         var bank = REVIEW_BANK[g];
         if (!bank){ rvBankNote.textContent = ""; return; }
         var pools = rvPools(g);
@@ -1334,12 +1330,6 @@
 
       function rvStart(){
         var g = rvGradeSel.value;
-        if (g === "11"){
-          rvClearQuiz();
-          rvFeedback.className = "feedback show bad";
-          rvFeedback.innerHTML = "<b>Lớp 11 chưa có ngân hàng câu hỏi</b> nên chưa ôn tập được. Em hãy chọn Lớp 6, 7, 8 hoặc 10.";
-          return;
-        }
         var bank = REVIEW_BANK[g];
         if (!bank || !bank.qs.length) return;
         var pools = rvPools(g);
