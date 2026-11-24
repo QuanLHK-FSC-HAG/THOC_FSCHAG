@@ -18,9 +18,23 @@ Kết quả:
     data/grade6/data.js         — module Lớp 6:  HTML bài học + hoạt động + ngân hàng ôn tập
     data/grade7/data.js         — module Lớp 7:  (như trên)
     data/grade8/data.js         — module Lớp 8:  (như trên)
-    data/grade10/data.js        — module Lớp 10: (như trên)
+    data/grade10/data10a.js     — module Lớp 10, chunk 1/2 (xem quy tắc tách chunk bên dưới)
+    data/grade10/data10b.js     — module Lớp 10, chunk 2/2 (gộp bằng Object.assign)
     data/grade11/data.js        — module Lớp 11: (như trên)
     (Lớp 9 và 12 chưa có dữ liệu nên không có thư mục, không xuất hiện trong menu.)
+
+Quy tắc tách chunk (thêm ngày 24/11/2026):
+  - github push-files trả HTTP 413 khi một lần gọi vượt ~5.44 MiB; file
+    3.65 MiB đã đẩy thành công, nên mỗi file dữ liệu giữ dưới 3.5 MiB
+    (CHUNK_MAX_BYTES). Lớp nào vượt ngưỡng thì tách lessonsHtml thành
+    nhiều chunk ~3 MiB: chunk đầu là object đầy đủ (lessonsHtml phần đầu
+    + order/names/maxes/activities/reviewBank/summaries), các chunk sau
+    chỉ nối phần HTML còn lại vào lessonsHtml bằng Object.assign.
+  - Tách ưu tiên tại ranh giới <section class="step-sec" ...> của lớp
+    (mỗi bài/mục là một section); nếu một section đơn vẫn quá lớn thì
+    tách tại dấu xuống dòng. Không tách trong chuỗi escape của template
+    literal. Các chunk nạp nối tiếp theo đúng thứ tự thẻ <script> trong
+    index.html, trước app.js.
 
 Nguyên tắc:
   - Không sửa nội dung kiến thức, đáp án hay hành vi: code logic giữ nguyên từng chữ,
@@ -37,6 +51,10 @@ import sys
 
 GRADES = ["6", "7", "8", "10", "11"]
 BUILDERS = ["buildQuiz", "buildSingle", "buildMulti", "buildTF", "buildDrag"]
+# Ngưỡng an toàn cho mỗi file dữ liệu khi đẩy GitHub: push-files lỗi 413 ở
+# ~5.44 MiB/lần gọi, file 3.65 MiB đã đẩy thành công — giữ mỗi file < 3.5 MiB.
+CHUNK_MAX_BYTES = 3_500_000
+CHUNK_SUFFIXES = "abcdefghijklmnopqrstuvwxyz"
 DEFAULT_EXPORT = os.path.expanduser(
     "~/workspace/your_files/bo-mon-tin-hoc-fsc-hag/bo-mon-tin-hoc-fsc-hag.html"
 )
@@ -435,8 +453,10 @@ def build_app_js(big, small, score_repl, calls_region, review_span, sum_span):
     return bootstrap + big + "\n" + small
 
 
-def build_index_html(html, panels):
-    """Ghép index.html: head gốc (style -> link css) + shell với panel rỗng + script tags."""
+def build_index_html(html, panels, grade_chunks):
+    """Ghép index.html: head gốc (style -> link css) + shell với panel rỗng + script tags.
+    grade_chunks: {lớp: [tên file dữ liệu]} — lớp tách chunk có nhiều thẻ <script>
+    nạp nối tiếp theo đúng thứ tự, trước app.js."""
     head_m = re.search(r"<head[^>]*>(.*?)</head>", html, re.S)
     head = head_m.group(1)
     styles = re.findall(r"<style[^>]*>(.*?)</style>", head, re.S)
@@ -461,7 +481,8 @@ def build_index_html(html, panels):
     )
     shell = before + "\n" + empty_panels + "\n" + after
     scripts = "\n".join(
-        '    <script src="data/grade%s/data.js"></script>' % g for g in GRADES
+        '    <script src="data/grade%s/%s"></script>' % (g, fn)
+        for g in GRADES for fn, _content in grade_chunks[g]
     ) + '\n    <script src="assets/js/app.js"></script>\n'
     index = (
         "<!doctype html>\n<html lang=\"vi\">\n  <head>"
@@ -472,6 +493,74 @@ def build_index_html(html, panels):
         + "  </body>\n</html>\n"
     )
     return index, styles
+
+
+def _utf8_len(text):
+    return len(text.encode("utf-8"))
+
+
+def _byte_cut(text, max_bytes):
+    """Vị trí cắt (số ký tự) để text[:cut] <= max_bytes (UTF-8).
+    Không cắt ngay sau dấu backslash để khỏi chẻ đôi chuỗi escape."""
+    cut = 0
+    total = 0
+    for ch in text:
+        n = len(ch.encode("utf-8"))
+        if total + n > max_bytes:
+            break
+        total += n
+        cut += 1
+    while cut > 0 and text[cut - 1] == "\\":
+        cut -= 1
+    return cut
+
+
+def split_lessons_html(grade, esc_html, budgets):
+    """Chia nội dung lessonsHtml (đã escape cho template literal) thành các
+    phần, mỗi phần vừa ngân sách byte tương ứng trong budgets (phần đầu trừ
+    chi phí object + các khóa khác, các phần sau trừ chi phí wrapper).
+    Tách ưu tiên tại ranh giới <section class="step-sec" ...>; nếu một
+    section đơn vẫn quá lớn thì tách tại dấu xuống dòng, cuối cùng cắt
+    cứng theo byte (không cắt sau backslash). budgets được mở rộng bằng
+    ngân sách cuối nếu cần thêm phần."""
+    bounds = [m.start() for m in re.finditer(
+        r'<section class="step-sec" id="sec-g%s-[^"]+">' % re.escape(grade),
+        esc_html)]
+    cuts = [0] + bounds + [len(esc_html)]
+    segments = [esc_html[cuts[i]:cuts[i + 1]] for i in range(len(cuts) - 1)]
+    segments = [s for s in segments if s]
+    parts = []
+    cur = ""
+    bi = 0
+
+    def budget():
+        return budgets[bi] if bi < len(budgets) else budgets[-1]
+
+    for seg in segments:
+        # Đóng phần hiện tại nếu thêm đoạn này sẽ vượt ngân sách
+        while cur and _utf8_len(cur) + _utf8_len(seg) > budget():
+            parts.append(cur)
+            cur = ""
+            bi += 1
+        # Một đoạn đơn vượt ngân sách: tách nhỏ đoạn đó
+        while _utf8_len(seg) > budget():
+            room = budget() - _utf8_len(cur)
+            cut = _byte_cut(seg, room)
+            nl = seg.rfind("\n", 0, cut)
+            if nl > 0:
+                cut = nl + 1
+            if cut <= 0:
+                raise ValueError(
+                    "Không tách được đoạn HTML tại ngân sách %d byte" % budget())
+            cur += seg[:cut]
+            seg = seg[cut:]
+            parts.append(cur)
+            cur = ""
+            bi += 1
+        cur += seg
+    if cur:
+        parts.append(cur)
+    return parts
 
 
 def build_grade_data_js(grade, lessons_html, tables, activities, review_value, summaries):
@@ -519,6 +608,123 @@ def build_grade_data_js(grade, lessons_html, tables, activities, review_value, s
     return out
 
 
+def build_grade_data_chunks(grade, lessons_html, tables, activities,
+                            review_value, summaries):
+    """Ghép (các) file dữ liệu của một lớp. Trả về [(tên file, nội dung)].
+    Một chunk (data.js) nếu vừa ngưỡng CHUNK_MAX_BYTES; nhiều chunk
+    (data{grade}a.js, data{grade}b.js, ...) nếu lessonsHtml quá lớn:
+    chunk đầu là object đầy đủ, các chunk sau nối phần HTML còn lại vào
+    lessonsHtml bằng Object.assign."""
+    sum_entries = ",\n        ".join(
+        "%s: %s" % (js_string_literal(k), v) for k, v in summaries
+    )
+    act_entries = []
+    for a in activities:
+        args = ", ".join(a["args"])
+        act_entries.append(
+            '    { fn: %s, id: %s, args: [%s] }'
+            % (js_string_literal(a["fn"]), js_string_literal(a["id"]), args)
+        )
+    other_keys = (
+        "  order: %s,\n"
+        "  names: %s,\n"
+        "  maxes: %s,\n"
+        "  activities: [\n%s\n  ],\n"
+        "  reviewBank: %s,\n"
+        "  summaries: {\n        %s\n  }\n"
+        % (
+            tables["order"],
+            tables["names"],
+            tables["maxes"],
+            ",\n".join(act_entries),
+            review_value,
+            sum_entries,
+        )
+    )
+    header = (
+        "/* ============================================================\n"
+        "   Module Lớp %s — Không gian Bộ môn Tin học FSC HAG\n"
+        "   Sửa bài trong module này: sửa HTML bài học trong lessonsHtml,\n"
+        "   sửa hoạt động trong activities, sửa ngân hàng ôn tập trong\n"
+        "   reviewBank, sửa tóm tắt trong summaries. Không sửa file khác\n"
+        "   nếu chỉ thay đổi nội dung của lớp này.\n"
+        "   ============================================================ */\n"
+        % grade
+    )
+    # Nội dung lessonsHtml đã escape cho template literal
+    esc = template_literal(lessons_html)[1:-1]
+    single = (
+        header
+        + 'window.THOC_DATA = window.THOC_DATA || {};\n'
+        + 'window.THOC_DATA["%s"] = {\n' % grade
+        + "  lessonsHtml: `" + esc + "`,\n"
+        + other_keys
+        + "};\n"
+    )
+    if _utf8_len(single) <= CHUNK_MAX_BYTES:
+        return [("data.js", single)]
+    # Tách nhiều chunk. Ngân sách phần đầu trừ chi phí object + khóa khác
+    # (+200 byte dự phòng cho dòng ghi chú chunk), các phần sau trừ chi
+    # phí wrapper Object.assign (+100 byte dự phòng).
+    head1 = (
+        header
+        + 'window.THOC_DATA = window.THOC_DATA || {};\n'
+        + 'window.THOC_DATA["%s"] = {\n' % grade
+        + "  lessonsHtml: `"
+    )
+    tail1 = "`,\n" + other_keys + "};\n"
+    head_n = (
+        "/* ============================================================\n"
+        "   Module Lớp %s — chunk nối tiếp (gộp bằng Object.assign)\n"
+        "   Nạp sau chunk đầu của lớp; nối phần HTML còn lại vào\n"
+        "   lessonsHtml của lớp, trước khi app.js chạy.\n"
+        "   ============================================================ */\n"
+        % grade
+    )
+    assign_open = (
+        'window.THOC_DATA["%s"] = Object.assign(window.THOC_DATA["%s"], {\n'
+        % (grade, grade)
+        + '  lessonsHtml: window.THOC_DATA["%s"].lessonsHtml + `' % grade
+    )
+    assign_close = "`\n});\n"
+    budgets = [
+        CHUNK_MAX_BYTES - _utf8_len(head1) - _utf8_len(tail1) - 200,
+        CHUNK_MAX_BYTES - _utf8_len(head_n) - _utf8_len(assign_open)
+        - _utf8_len(assign_close) - 100,
+    ]
+    parts = split_lessons_html(grade, esc, budgets)
+    n = len(parts)
+    if n > len(CHUNK_SUFFIXES):
+        raise ValueError("Lớp %s cần %d chunk, vượt giới hạn" % (grade, n))
+    note1 = ("   (chunk 1/%d — lessonsHtml tách làm %d phần, "
+             "chunk sau gộp bằng Object.assign)\n" % (n, n))
+    head1 = head1.replace(
+        "   Module Lớp %s — Không gian Bộ môn Tin học FSC HAG\n" % grade,
+        "   Module Lớp %s — Không gian Bộ môn Tin học FSC HAG\n" % grade + note1,
+        1,
+    )
+    chunks = []
+    for i, part in enumerate(parts):
+        suffix = CHUNK_SUFFIXES[i]
+        if i == 0:
+            content = head1 + part + tail1
+        else:
+            head_ni = head_n.replace(
+                "   Module Lớp %s — chunk nối tiếp (gộp bằng Object.assign)\n" % grade,
+                "   Module Lớp %s — chunk %d/%d (gộp bằng Object.assign)\n"
+                % (grade, i + 1, n),
+                1,
+            )
+            content = head_ni + assign_open + part + assign_close
+        if _utf8_len(content) > CHUNK_MAX_BYTES:
+            raise ValueError(
+                "Chunk %d của lớp %s vẫn vượt ngưỡng (%d byte)"
+                % (i + 1, grade, _utf8_len(content))
+            )
+        chunks.append(("data%s%s.js" % (grade, suffix), content))
+    return chunks
+
+
 def main():
     export_path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_EXPORT
     out_dir = (
@@ -550,7 +756,14 @@ def main():
     sum_by_grade, sum_span = extract_summaries(small)
 
     # 6. Ghép các file
-    index_html, styles = build_index_html(html, panels)
+    chunks_by_grade = {}
+    for g in GRADES:
+        open_tag, inner, close_tag, _, _ = panels[g]
+        chunks_by_grade[g] = build_grade_data_chunks(
+            g, inner, tables[g], acts_by_grade[g],
+            review_by_grade[g], sum_by_grade[g],
+        )
+    index_html, styles = build_index_html(html, panels, chunks_by_grade)
     app_js = build_app_js(big, small, score_repl, calls_region, review_span, sum_span)
 
     os.makedirs(os.path.join(out_dir, "assets", "css"), exist_ok=True)
@@ -570,14 +783,10 @@ def main():
     with open(os.path.join(out_dir, "assets", "js", "app.js"), "w", encoding="utf-8") as f:
         f.write(app_js)
     for g in GRADES:
-        open_tag, inner, close_tag, _, _ = panels[g]
-        data_js = build_grade_data_js(
-            g, inner, tables[g], acts_by_grade[g],
-            review_by_grade[g], sum_by_grade[g],
-        )
-        with open(os.path.join(out_dir, "data", "grade" + g, "data.js"),
-                  "w", encoding="utf-8") as f:
-            f.write(data_js)
+        for fname, content in chunks_by_grade[g]:
+            with open(os.path.join(out_dir, "data", "grade" + g, fname),
+                      "w", encoding="utf-8") as f:
+                f.write(content)
 
     # 7. Báo cáo nhanh
     total_act = sum(len(acts_by_grade[g]) for g in GRADES)
@@ -596,8 +805,13 @@ def main():
             if qs_value.startswith("[") and qs_value.endswith("]")
             else 0
         )
-        print("    Lớp %s: %d hoạt động, %d câu hỏi ôn tập, %d tóm tắt"
-              % (g, len(acts_by_grade[g]), n_bank, len(sum_by_grade[g])))
+        chunk_info = ", ".join(
+            "%s (%d byte)" % (fn, _utf8_len(c))
+            for fn, c in chunks_by_grade[g]
+        )
+        print("    Lớp %s: %d hoạt động, %d câu hỏi ôn tập, %d tóm tắt — %s"
+              % (g, len(acts_by_grade[g]), n_bank, len(sum_by_grade[g]),
+                 chunk_info))
 
 
 if __name__ == "__main__":

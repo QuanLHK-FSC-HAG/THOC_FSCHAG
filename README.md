@@ -48,7 +48,8 @@ THOC_FSCHAG/
 │   ├── grade6/data.js    # Module Lớp 6: lessonsHtml + order/names/maxes
 │   ├── grade7/data.js    #   + activities + reviewBank + summaries
 │   ├── grade8/data.js    #   (ảnh bài học giữ dạng base64 trong file text)
-│   ├── grade10/data.js
+│   ├── grade10/data10a.js  # Module Lớp 10, chunk 1/2 (Bài 3.11, 4.12, 4.13
+│   ├── grade10/data10b.js  #   + chunk 2/2 (Bài 4.14, 4.15 + tổng kết)
 │   └── grade11/data.js
 ├── tools/
 │   └── split.py          # Script tách bản export 1 file của artifact
@@ -63,6 +64,18 @@ Mỗi lớp là một module độc lập trong `data/gradeX/data.js`:
 điểm), `activities` (danh sách hoạt động chấm điểm), `reviewBank` (ngân
 hàng ôn tập: `acts` + `qs`), `summaries` (tóm tắt từng bài). Sửa nội dung
 một lớp thì chỉ sửa file `data.js` của lớp đó.
+
+**Quy tắc tách chunk:** `github push-files` trả lỗi HTTP 413 khi một lần
+gọi vượt ~5,44 MiB (file 3,65 MiB đã đẩy thành công). Vì vậy mỗi file dữ
+liệu giữ dưới **3,5 MiB**; lớp nào vượt ngưỡng thì `tools/split.py` tự
+tách `lessonsHtml` thành nhiều chunk `data{X}a.js`, `data{X}b.js`, ...
+(chunk đầu là object đầy đủ, các chunk sau nối phần HTML còn lại vào
+`lessonsHtml` bằng `Object.assign`, nạp nối tiếp trước `app.js`). Hiện
+tại Lớp 10 tách 2 chunk (`data10a.js` 3,09 MiB + `data10b.js` 2,66 MiB);
+Lớp 11 vẫn 1 file `data.js` (3,65 MiB) — chạy lại `split.py` sẽ tách
+Lớp 11 thành 2 chunk. Lưu ý: `push-files` không xóa file trên repo, nên
+file `data.js` cũ của lớp đã tách chunk sẽ còn nằm trên repo (không còn
+được `index.html` nạp tới, vô hại; muốn dọn thì xóa tay trên GitHub).
 
 ## Chạy local
 
@@ -92,10 +105,13 @@ python3 -m http.server 8000
    `pptx-sang-bai-giang-tuong-tac` (giữ nguyên kiến thức, trình tự, thuật
    ngữ; thêm hộp `GHI VÀO VỞ`, hoạt động chấm điểm khóa kết quả, tóm tắt,
    khung hướng dẫn ghi bài; bỏ tên tác giả trong metadata).
-2. Thêm HTML bài học vào `lessonsHtml` của `data/gradeX/data.js`, thêm
-   hoạt động vào `activities`, cập nhật `order`/`names`/`maxes`, thêm
-   tóm tắt vào `summaries`, bổ sung câu hỏi của bài vào `reviewBank.qs`
-   của lớp đó (xem mục dưới).
+2. Thêm HTML bài học vào `lessonsHtml` của `data/gradeX/data.js` (lớp
+   đã tách chunk như Lớp 10 thì thêm vào `data10a.js` nếu bài nằm trong
+   nửa đầu, hoặc `data10b.js` nếu nằm trong nửa sau — xem ghi chú chunk
+   ở mục Cấu trúc; an toàn nhất là sửa trên artifact rồi chạy lại
+   `tools/split.py`), thêm hoạt động vào `activities`, cập nhật
+   `order`/`names`/`maxes`, thêm tóm tắt vào `summaries`, bổ sung câu hỏi
+   của bài vào `reviewBank.qs` của lớp đó (xem mục dưới).
 3. Kiểm tra lại bằng `node --check` cho file `data.js` vừa sửa rồi mở
    `index.html` thử: chọn lớp → chọn bài mới → nộp thử 1 hoạt động.
 
@@ -152,14 +168,16 @@ Khi không gian trên artifact được sửa (thêm bài, sửa đáp án, đ�
    ```bash
    python3 tools/split.py <file-export.html> <thư-mục-repo>
    ```
-3. Kiểm chứng: `node --check assets/js/app.js data/grade*/data.js`;
+3. Kiểm chứng: `node --check assets/js/app.js data/grade*/*.js`;
    đếm đủ 20 bài / 88 hoạt động / 272 điểm; ngân hàng đủ 269 câu;
    Dạng 1 đủ 4 lựa chọn; lớp 9/12 không xuất hiện; lớp 11 vẫn khóa ôn tập.
 4. Đẩy lên GitHub bằng `github push-files` theo quy trình snapshot-push
    (xem `/opt/hatch/connectors/github/references/snapshot-push.md`):
-   tổng dung lượng repo ~16,4 MiB, vượt giới hạn 16 MiB/snapshot nên
-   **đẩy thành 2 commit** (mỗi commit ≤ 16 MiB), không cắt bớt nội dung.
-   Ghi sync record tại `thoc-fschag.muse-github-snapshot-sync.json`.
+   **mỗi lần gọi `push-files` chỉ đẩy tối đa ~3,5 MiB** (vượt ~5,44 MiB
+   sẽ lỗi HTTP 413) nên đẩy theo từng lớp/chunk, mỗi lần một commit
+   (file dữ liệu lớp nào vượt ngưỡng thì đẩy thành nhiều commit, mỗi
+   commit một chunk). Không cắt bớt nội dung. Ghi sync record tại
+   `thoc-fschag.muse-github-snapshot-sync.json` sau mỗi commit thành công.
 
 ## Lưu ý
 
