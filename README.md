@@ -22,8 +22,7 @@ theo kỹ năng `pptx-sang-bai-giang-tuong-tac`.
   - Bộ câu hỏi luôn theo thứ tự Dạng 1 → Dạng 2 → Dạng 3; chọn 5/10/15/20/
     tất cả thì lấy đủ số câu theo thứ tự đó; nộp xong có khung nhận xét
     nhẹ nhàng cho học sinh.
-- **Lớp 11 đang khóa mục ôn tập** (ngân hàng câu hỏi của lớp 11 đã có trong
-  dữ liệu nhưng chưa mở — chỉ mở khi giáo viên quyết).
+- **Lớp 11 đã mở mục ôn tập** (ngân hàng 68 câu, tối đa 18,5đ theo thang hiện hành).
 - **Lớp 9 và lớp 12 chưa có dữ liệu** nên không xuất hiện trong menu chọn lớp;
   bổ sung sau khi có bài của 2 lớp này.
 - Chấm điểm khóa kết quả: 1 hoạt động = 1 lần nộp = 1 kết quả khóa, không
@@ -50,7 +49,8 @@ THOC_FSCHAG/
 │   ├── grade8/data.js    #   (ảnh bài học giữ dạng base64 trong file text)
 │   ├── grade10/data10a.js  # Module Lớp 10, chunk 1/2 (Bài 3.11, 4.12, 4.13
 │   ├── grade10/data10b.js  #   + chunk 2/2 (Bài 4.14, 4.15 + tổng kết)
-│   └── grade11/data.js
+│   ├── grade11/data11a.js  # Module Lớp 11, chunk 1/2
+│   └── grade11/data11b.js  #   + chunk 2/2
 ├── tools/
 │   └── split.py          # Script tách bản export 1 file của artifact
 │                         # thành cấu trúc module này (chạy lại sau mỗi
@@ -72,8 +72,8 @@ tách `lessonsHtml` thành nhiều chunk `data{X}a.js`, `data{X}b.js`, ...
 (chunk đầu là object đầy đủ, các chunk sau nối phần HTML còn lại vào
 `lessonsHtml` bằng `Object.assign`, nạp nối tiếp trước `app.js`). Hiện
 tại Lớp 10 tách 2 chunk (`data10a.js` 3,09 MiB + `data10b.js` 2,66 MiB);
-Lớp 11 vẫn 1 file `data.js` (3,65 MiB) — chạy lại `split.py` sẽ tách
-Lớp 11 thành 2 chunk. Lưu ý: `push-files` không xóa file trên repo, nên
+Lớp 11 tách 2 chunk (`data11a.js` 3,05 MiB + `data11b.js` 0,60 MiB).
+Lưu ý: `push-files` không xóa file trên repo, nên
 file `data.js` cũ của lớp đã tách chunk sẽ còn nằm trên repo (không còn
 được `index.html` nạp tới, vô hại; muốn dọn thì xóa tay trên GitHub).
 
@@ -170,7 +170,7 @@ Khi không gian trên artifact được sửa (thêm bài, sửa đáp án, đ�
    ```
 3. Kiểm chứng: `node --check assets/js/app.js data/grade*/*.js`;
    đếm đủ 20 bài / 88 hoạt động / 272 điểm; ngân hàng đủ 269 câu;
-   Dạng 1 đủ 4 lựa chọn; lớp 9/12 không xuất hiện; lớp 11 vẫn khóa ôn tập.
+   Dạng 1 đủ 4 lựa chọn; lớp 9/12 không xuất hiện; lớp 11 đã mở ôn tập.
 4. Đẩy lên GitHub bằng `github push-files` theo quy trình snapshot-push
    (xem `/opt/hatch/connectors/github/references/snapshot-push.md`):
    **mỗi lần gọi `push-files` chỉ đẩy tối đa ~3,5 MiB** (vượt ~5,44 MiB
