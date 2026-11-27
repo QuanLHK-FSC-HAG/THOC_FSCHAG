@@ -1195,57 +1195,31 @@
         });
         return out;
       }
-      /* Ô nhập số câu của một bài (nằm ngay trên dòng chọn bài đó). */
-      function rvLessonInput(num){
+      /* Ô nhập số câu của một bài, một dạng (nằm ngay trên dòng chọn bài
+         đó): form 1 = Dạng 1, form 2 = Dạng 2. */
+      function rvLessonInput(num, form){
         var inputs = qsa(".rv-lesson-n", rvLessonsBox);
         for (var i = 0; i < inputs.length; i++){
-          if (inputs[i].getAttribute("data-num") === String(num)) return inputs[i];
+          if (inputs[i].getAttribute("data-num") === String(num) && inputs[i].getAttribute("data-form") === String(form)) return inputs[i];
         }
         return null;
       }
-      /* Số câu tối đa của một bài theo dạng đang chọn (D1 + D2). */
-      function rvLessonMax(g, num){
+      /* Số câu tối đa của một bài ở một dạng (theo dạng đang chọn). */
+      function rvLessonFormMax(g, num, form){
         var p = rvLessonPools(g, num);
-        return p.d1.length + p.d2.length;
+        return form === 1 ? p.d1.length : p.d2.length;
       }
-      /* Số câu học sinh muốn làm ở một bài: đọc từ ô nhập của bài đó,
-         kẹp trong [0, max của bài]. Bài không được tick thì tính 0. */
-      function rvLessonWanted(g, num){
+      /* Số câu học sinh muốn làm ở một bài, một dạng: đọc từ ô nhập
+         của bài đó, kẹp trong [0, max của dạng]. Bài không được tick
+         hoặc dạng không được chọn thì tính 0. */
+      function rvLessonWanted(g, num, form){
         if (rvSelectedLessons()[num] !== true) return 0;
-        var inp = rvLessonInput(num);
-        if (!inp) return rvLessonMax(g, num);
+        if (rvSelectedForms().indexOf(form) < 0) return 0;
+        var inp = rvLessonInput(num, form);
+        if (!inp) return rvLessonFormMax(g, num, form);
         var v = parseInt(inp.value, 10);
         if (isNaN(v) || v < 0) return 0;
-        return Math.min(v, rvLessonMax(g, num));
-      }
-      /* Chia n câu của một bài ra hai dạng theo tỉ lệ số câu từng dạng
-         trong bài (phần dư chia theo phần lẻ lớn nhất; mỗi dạng đang
-         chọn được ít nhất 1 câu khi n đủ lớn), kẹp trong [0, max từng dạng]. */
-      function rvSplit(n, a, b){
-        var alloc = [0, 0];
-        if (n <= 0 || (a + b) === 0) return alloc;
-        n = Math.min(n, a + b);
-        if (a === 0) return [0, n];
-        if (b === 0) return [n, 0];
-        var x0 = n * a / (a + b), x1 = n * b / (a + b);
-        alloc[0] = Math.floor(x0);
-        alloc[1] = Math.floor(x1);
-        var rem = n - alloc[0] - alloc[1];
-        if (rem > 0){
-          if (x0 - alloc[0] >= x1 - alloc[1]) alloc[0]++; else alloc[1]++;
-        }
-        if (n >= 2){
-          if (alloc[0] === 0){ alloc[0] = 1; alloc[1]--; }
-          if (alloc[1] === 0){ alloc[1] = 1; alloc[0]--; }
-        }
-        if (alloc[1] > b){ alloc[0] += alloc[1] - b; alloc[1] = b; }
-        if (alloc[0] > a){ alloc[1] += alloc[0] - a; alloc[0] = a; }
-        if (alloc[0] < 0) alloc[0] = 0;
-        if (alloc[1] < 0) alloc[1] = 0;
-        var left = n - alloc[0] - alloc[1];
-        if (left > 0 && alloc[0] < a){ var add = Math.min(left, a - alloc[0]); alloc[0] += add; left -= add; }
-        if (left > 0 && alloc[1] < b){ var add2 = Math.min(left, b - alloc[1]); alloc[1] += add2; left -= add2; }
-        return alloc;
+        return Math.min(v, rvLessonFormMax(g, num, form));
       }
       /* Số câu từng dạng của một bài (để hiện ngay trên từng dòng chọn bài):
          Dạng 1 = số câu trắc nghiệm; Dạng 2 = số câu Đúng/Sai (gom 4 ý
@@ -1288,27 +1262,39 @@
           var sp = document.createElement("span");
           sp.textContent = "Bài " + L.num + " · " + L.name;
           var cnt = rvLessonCounts(g, L.num);
-          var cs = document.createElement("span");
-          cs.className = "rv-lesson-counts";
-          cs.textContent = "D1: " + cnt.d1 + " · D2: " + cnt.d2;
-          /* Ô nhập số câu riêng của bài này (mặc định = hết bài, kẹp
-             theo max của bài); bỏ trống thì tính 0 câu. */
-          var inp = document.createElement("input");
-          inp.type = "number"; inp.className = "rv-lesson-n";
-          inp.setAttribute("data-num", L.num);
-          inp.min = "0";
-          var mx = rvLessonMax(g, L.num);
-          inp.max = String(mx);
-          inp.value = String(mx);
-          inp.inputMode = "numeric";
-          inp.setAttribute("aria-label", "Số câu muốn làm ở Bài " + L.num);
-          inp.addEventListener("input", rvUpdateSelection);
-          inp.addEventListener("change", function(){
-            var v = parseInt(inp.value, 10);
-            if (isNaN(v)) inp.value = "0";
-            rvUpdateSelection();
+          /* Hai ô nhập số câu riêng từng dạng của bài này (mặc định =
+             hết bài, kẹp theo max từng dạng; bỏ trống thì tính 0 câu).
+             Không gom chung rồi chia tự động nữa: mỗi dạng lấy đúng
+             số câu học sinh đã nhập cho dạng đó. */
+          var forms = document.createElement("span");
+          forms.className = "rv-lesson-forms";
+          [1, 2].forEach(function(f){
+            var mx = f === 1 ? cnt.d1 : cnt.d2;
+            var grp = document.createElement("span");
+            grp.className = "rv-finput";
+            var lb = document.createElement("b");
+            lb.textContent = "D" + f;
+            var inp = document.createElement("input");
+            inp.type = "number"; inp.className = "rv-lesson-n";
+            inp.setAttribute("data-num", L.num);
+            inp.setAttribute("data-form", String(f));
+            inp.min = "0";
+            inp.max = String(mx);
+            inp.value = String(mx);
+            inp.inputMode = "numeric";
+            inp.setAttribute("aria-label", "Số câu Dạng " + f + " ở Bài " + L.num);
+            inp.addEventListener("input", rvUpdateSelection);
+            inp.addEventListener("change", function(){
+              var v = parseInt(inp.value, 10);
+              if (isNaN(v)) inp.value = "0";
+              rvUpdateSelection();
+            });
+            var mxEl = document.createElement("i");
+            mxEl.textContent = "/" + mx;
+            grp.appendChild(lb); grp.appendChild(inp); grp.appendChild(mxEl);
+            forms.appendChild(grp);
           });
-          lab.appendChild(cb); lab.appendChild(sp); lab.appendChild(cs); lab.appendChild(inp);
+          lab.appendChild(cb); lab.appendChild(sp); lab.appendChild(forms);
           rvLessonsBox.appendChild(lab);
         });
         rvUpdateSelection();
@@ -1321,25 +1307,29 @@
         var pools = rvPools(g);
         var fp = rvFilteredPools(g);
         var maxTotal = fp.d1.length + fp.d2.length;
-        /* Cập nhật từng ô nhập số câu của bài: max theo dạng đang chọn,
-           kẹp giá trị vượt max, tắt ô khi bài không được tick; tổng số
-           câu = cộng số câu từng bài đã chọn. */
+        /* Cập nhật từng ô nhập số câu của bài: max theo từng dạng của
+           bài, kẹp giá trị vượt max, tắt ô khi bài không được tick
+           hoặc dạng đó không được chọn; tổng số câu = cộng số câu
+           từng dạng từng bài đã chọn. */
         var sel = rvSelectedLessons();
+        var forms = rvSelectedForms();
         var wantedD1 = 0, wantedD2 = 0, total = 0;
         rvEnabledLessons(g).forEach(function(L){
-          var inp = rvLessonInput(L.num);
-          if (!inp) return;
-          var p = rvLessonPools(g, L.num);
-          var mx = p.d1.length + p.d2.length;
-          inp.max = String(mx);
-          inp.disabled = sel[L.num] !== true;
-          if (sel[L.num] === true){
-            var v = parseInt(inp.value, 10);
-            if (!isNaN(v) && v > mx) inp.value = String(mx);
-            var n = rvLessonWanted(g, L.num);
-            var sp = rvSplit(n, p.d1.length, p.d2.length);
-            wantedD1 += sp[0]; wantedD2 += sp[1]; total += n;
-          }
+          var cnt = rvLessonCounts(g, L.num);
+          [1, 2].forEach(function(f){
+            var inp = rvLessonInput(L.num, f);
+            if (!inp) return;
+            var mx = f === 1 ? cnt.d1 : cnt.d2;
+            inp.max = String(mx);
+            inp.disabled = sel[L.num] !== true || forms.indexOf(f) < 0;
+            if (!inp.disabled){
+              var v = parseInt(inp.value, 10);
+              if (!isNaN(v) && v > mx) inp.value = String(mx);
+            }
+          });
+          var n1 = rvLessonWanted(g, L.num, 1);
+          var n2 = rvLessonWanted(g, L.num, 2);
+          wantedD1 += n1; wantedD2 += n2; total += n1 + n2;
         });
         var maxPts = wantedD1 * 0.25 + wantedD2;
         var note = "";
@@ -1391,8 +1381,11 @@
       rvCountAllBtn.addEventListener("click", function(){
         var g = rvGradeSel.value;
         rvEnabledLessons(g).forEach(function(L){
-          var inp = rvLessonInput(L.num);
-          if (inp && !inp.disabled) inp.value = String(rvLessonMax(g, L.num));
+          var cnt = rvLessonCounts(g, L.num);
+          [1, 2].forEach(function(f){
+            var inp = rvLessonInput(L.num, f);
+            if (inp && !inp.disabled) inp.value = String(f === 1 ? cnt.d1 : cnt.d2);
+          });
         });
         rvUpdateSelection();
       });
@@ -1697,21 +1690,19 @@
         var g = rvGradeSel.value;
         var bank = REVIEW_BANK[g];
         if (!bank || !bank.qs.length) return;
-        /* Mỗi bài đóng góp đúng số câu học sinh đã nhập cho bài đó,
-           chia theo tỉ lệ Dạng 1/Dạng 2 trong bài (Dạng 3 tự luận
-           không nằm trong bộ ôn tập); câu hỏi trong từng bài được xáo
-           trộn, rồi trộn chung lại theo dạng để bộ ôn tập vẫn hiện
-           khối Dạng 1 trước, khối Dạng 2 sau như trước. */
+        /* Mỗi bài, mỗi dạng đóng góp đúng số câu học sinh đã nhập cho
+           dạng đó (không gom chung rồi chia tự động); câu hỏi trong
+           từng bài được xáo trộn, rồi trộn chung lại theo dạng để bộ
+           ôn tập vẫn hiện khối Dạng 1 trước, khối Dạng 2 sau như trước. */
         var sel = rvSelectedLessons();
         var d1s = [], d2s = [];
         rvEnabledLessons(g).forEach(function(L){
           if (sel[L.num] !== true) return;
-          var n = rvLessonWanted(g, L.num);
-          if (n <= 0) return;
           var p = rvLessonPools(g, L.num);
-          var sp = rvSplit(n, p.d1.length, p.d2.length);
-          rvShuffle(p.d1).slice(0, sp[0]).forEach(function(q){ d1s.push({ kind: 1, q: q }); });
-          rvShuffle(p.d2).slice(0, sp[1]).forEach(function(gr){ d2s.push({ kind: 2, group: gr }); });
+          var n1 = rvLessonWanted(g, L.num, 1);
+          var n2 = rvLessonWanted(g, L.num, 2);
+          rvShuffle(p.d1).slice(0, n1).forEach(function(q){ d1s.push({ kind: 1, q: q }); });
+          rvShuffle(p.d2).slice(0, n2).forEach(function(gr){ d2s.push({ kind: 2, group: gr }); });
         });
         var seq = rvShuffle(d1s).concat(rvShuffle(d2s));
         if (!seq.length) return;
@@ -1818,7 +1809,11 @@
       sidebar.setAttribute("aria-label", "Menu lớp và bài học");
       sidebar.innerHTML =
         '<div class="side-block"><h3 class="side-h">Chọn lớp</h3><div class="side-grades" id="sideGrades"></div></div>' +
-        '<div class="side-block"><h3 class="side-h" id="sideLessonsH">Bài học</h3><div class="side-lessons" id="sideLessons"></div></div>' +
+        '<div class="side-block"><h3 class="side-h">Tính năng</h3><div class="side-modes" id="sideModes">' +
+        '<button type="button" class="side-mode-btn" data-mode="lessons" aria-current="true">Bài giảng</button>' +
+        '<button type="button" class="side-mode-btn" data-mode="review" aria-current="false">Ôn tập</button>' +
+        '</div></div>' +
+        '<div class="side-block" id="sideLessonsBlock"><h3 class="side-h" id="sideLessonsH">Bài học</h3><div class="side-lessons" id="sideLessons"></div></div>' +
         '<p class="side-tip">Bấm vào tên bài để mở bài đó trong khung bên cạnh. Học lần lượt từ bài đầu đến bài cuối của lớp; cuối mỗi bài có phần <b>Tóm tắt</b> trước khi làm luyện tập.</p>';
 
       var mainCol = document.createElement("div");
@@ -1836,6 +1831,11 @@
       mainCol.appendChild(frameBar);
       wrapEl.insertBefore(layout, firstPanel);
       qsa(".grade-panel").forEach(function(p){ mainCol.appendChild(p); });
+      /* Ôn tập cuối HK1 giờ là tính năng của menu chọn lớp (nằm trong
+         cột nội dung, hiện khi chọn "Ôn tập"), không còn nằm ở cuối
+         trang chủ nữa — phần ôn tập luôn theo đúng lớp đang chọn. */
+      var reviewBox = $("on-tap-hk1");
+      if (reviewBox) mainCol.appendChild(reviewBox);
 
       /* ---------- Gom các section thành frame theo từng bài ---------- */
       var LESSONS = {};   /* grade -> [{key, title, frame, tk}] */
@@ -1994,7 +1994,40 @@
       });
 
       /* ---------- Điều hướng: menu bên + frame bài ---------- */
+      /* ---------- Menu chọn lớp: 2 tính năng Bài giảng / Ôn tập ----------
+         "Bài giảng": cột nội dung hiện khung bài học của lớp đang chọn.
+         "Ôn tập": cột nội dung hiện phần ôn tập của lớp đó (khung bài
+         học và danh sách bài bên menu tạm ẩn); phần ôn tập luôn theo
+         đúng lớp đang chọn trong menu. Chế độ đang chọn được giữ nguyên
+         khi đổi lớp, nên học sinh có thể ôn từng lớp liên tiếp. */
       var sideGrades = $("sideGrades"), sideLessons = $("sideLessons"), sideLessonsH = $("sideLessonsH");
+      var sideModes = $("sideModes");
+      var mode = "lessons";
+      function syncReviewGrade(g){
+        var sel = $("rvGrade");
+        if (!sel || sel.value === g) return;
+        sel.value = g;
+        sel.dispatchEvent(new Event("change"));
+      }
+      function setMode(m){
+        if (m !== "lessons" && m !== "review") return;
+        mode = m;
+        qsa(".side-mode-btn", sideModes).forEach(function(b){
+          b.setAttribute("aria-current", b.getAttribute("data-mode") === m ? "true" : "false");
+        });
+        layout.classList.toggle("mode-review", m === "review");
+        if (m === "review"){
+          if (activeGrade) syncReviewGrade(activeGrade);
+          var rb = $("on-tap-hk1");
+          if (rb) rb.scrollIntoView({ block: "start" });
+        } else if (activeGrade){
+          showLesson(activeGrade, current[activeGrade] || (LESSONS[activeGrade][0] && LESSONS[activeGrade][0].key), false);
+          scrollToFrameTop();
+        }
+      }
+      qsa(".side-mode-btn", sideModes).forEach(function(b){
+        b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+      });
       var frameTitle = $("frameTitle"), prevBtn = $("prevLesson"), nextBtn = $("nextLesson");
       var activeGrade = null;
 
@@ -2110,7 +2143,14 @@
           var g = btn.getAttribute("data-grade");
           if (!LESSONS[g] || !LESSONS[g].length) return;
           buildSidebar(g);
-          showLesson(g, current[g] || LESSONS[g][0].key, true);
+          if (mode === "review"){
+            activeGrade = g;
+            syncReviewGrade(g);
+            var rb = $("on-tap-hk1");
+            if (rb) rb.scrollIntoView({ block: "start" });
+          } else {
+            showLesson(g, current[g] || LESSONS[g][0].key, true);
+          }
         });
       });
 

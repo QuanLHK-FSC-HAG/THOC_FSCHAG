@@ -314,8 +314,11 @@
       .rv-count-row input[type="number"]{border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:15.5px;font-weight:700;background:var(--card);color:var(--ink);min-height:46px;width:110px}
       .rv-count-row input[type="number"]:focus{outline:3px solid var(--orange);outline-offset:1px;border-color:var(--blue)}
       .rv-check span:first-of-type{flex:1;min-width:0}
-      .rv-lesson-counts{margin-left:auto;flex:none;font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;padding-left:8px}
-      .rv-lesson-n{flex:none;width:64px;border:1.5px solid var(--line);border-radius:8px;padding:5px 6px;font:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--card);color:var(--ink);min-height:32px}
+      .rv-lesson-forms{margin-left:auto;flex:none;display:flex;gap:10px;align-items:center;padding-left:8px}
+      .rv-finput{display:flex;align-items:center;gap:3px;font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+      .rv-finput b{color:var(--ink)}
+      .rv-finput i{font-style:normal;font-weight:600}
+      .rv-lesson-n{flex:none;width:56px;border:1.5px solid var(--line);border-radius:8px;padding:5px 6px;font:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--card);color:var(--ink);min-height:32px}
       .rv-lesson-n:focus{outline:3px solid var(--orange);outline-offset:1px;border-color:var(--blue)}
       .rv-lesson-n:disabled{opacity:.45;cursor:not-allowed}
       .rv-total-num{font-size:24px;font-weight:800;color:var(--blue);line-height:1;min-width:60px;text-align:center}
@@ -375,6 +378,20 @@
       .side-grade-btn[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
       .side-grade-btn[aria-current="true"] small{color:#cfe6ff}
       @media (prefers-color-scheme: dark){.side-grade-btn[aria-current="true"]{color:#08131f}.side-grade-btn[aria-current="true"] small{color:#274b6e}}
+      .side-modes{display:flex;gap:8px}
+      .side-mode-btn{flex:1;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 8px;font:inherit;font-weight:700;font-size:14.5px;cursor:pointer;min-height:44px}
+      .side-mode-btn:hover{border-color:var(--blue)}
+      .side-mode-btn[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+      @media (prefers-color-scheme: dark){.side-mode-btn[aria-current="true"]{color:#08131f}}
+      .side-mode-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+      /* Chế độ Ôn tập: cột nội dung chỉ hiện phần ôn tập của lớp đang
+         chọn (khung bài học + các panel bài giảng tạm ẩn); menu bên
+         ẩn danh sách bài, chỉ còn chọn lớp và chuyển tính năng. */
+      .main-col #on-tap-hk1{display:none}
+      .layout.mode-review .main-col #on-tap-hk1{display:block}
+      .layout.mode-review .frame-bar,.layout.mode-review .grade-panel{display:none !important}
+      .layout.mode-review #sideLessonsBlock{display:none}
+      .layout.mode-review .side-tip{display:none}
       .side-lessons{display:grid;gap:6px}
       .side-lesson-btn{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-weight:600;font-size:14px;line-height:1.4;cursor:pointer;min-height:44px}
       .side-lesson-btn:hover{border-color:var(--blue)}
