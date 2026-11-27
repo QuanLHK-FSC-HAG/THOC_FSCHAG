@@ -1194,6 +1194,28 @@
         if (isNaN(v) || v < 1) return Math.min(10, total);
         return Math.min(v, total);
       }
+      /* Số câu từng dạng của một bài (để hiện ngay trên từng dòng chọn bài):
+         Dạng 1 = số câu trắc nghiệm; Dạng 2 = số câu Đúng/Sai (gom 4 ý
+         theo hoạt động, như rvPools). Chỉ tính câu hỏi của bài đang bật. */
+      function rvLessonCounts(g, num){
+        var bank = REVIEW_BANK[g];
+        var c = { d1: 0, d2: 0 };
+        if (!bank) return c;
+        var tfByAct = {}, tfOrder = [];
+        bank.qs.forEach(function(q){
+          if (rvLessonNum(g, q) !== num) return;
+          if (window.THOC_ADMIN && window.THOC_ADMIN.isReviewHidden && window.THOC_ADMIN.isReviewHidden(g, q)) return;
+          if (q.t === "single" && q.o && q.o.length === 4) c.d1++;
+          else if (q.t === "tf"){
+            if (!tfByAct[q.a]){ tfByAct[q.a] = []; tfOrder.push(q.a); }
+            tfByAct[q.a].push(q);
+          }
+        });
+        tfOrder.forEach(function(a){
+          c.d2 += Math.floor(tfByAct[a].length / 4);
+        });
+        return c;
+      }
       /* Dựng lại danh sách bài đang bật của lớp đang chọn (mặc định
          tick hết), rồi cập nhật ghi chú + số câu tối đa. Quản lý bật/tắt
          bài cũng đi qua đây (admin gọi refreshReviewNote → change). */
@@ -1212,7 +1234,11 @@
           cb.addEventListener("change", rvUpdateSelection);
           var sp = document.createElement("span");
           sp.textContent = "Bài " + L.num + " · " + L.name;
-          lab.appendChild(cb); lab.appendChild(sp);
+          var cnt = rvLessonCounts(g, L.num);
+          var cs = document.createElement("span");
+          cs.className = "rv-lesson-counts";
+          cs.textContent = "D1: " + cnt.d1 + " · D2: " + cnt.d2;
+          lab.appendChild(cb); lab.appendChild(sp); lab.appendChild(cs);
           rvLessonsBox.appendChild(lab);
         });
         rvUpdateSelection();
