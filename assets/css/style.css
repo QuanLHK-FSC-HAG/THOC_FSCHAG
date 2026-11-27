@@ -457,6 +457,7 @@
       .adm-grade h4 .adm-count{font-size:12.5px;font-weight:600;color:var(--ink-2);margin-left:6px}
       .adm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:14.5px}
       .adm-row .adm-lesson{flex:1 1 auto}
+      .adm-row .adm-bank-tag{display:inline-block;margin-left:8px;padding:1px 7px;border:1px solid var(--line);border-radius:999px;font-size:11px;font-weight:600;color:var(--ink-2);white-space:nowrap}
       .adm-row .adm-off{color:var(--ink-2)}
       .adm-switch{position:relative;flex:none;display:inline-block;width:46px;height:26px}
       .adm-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}

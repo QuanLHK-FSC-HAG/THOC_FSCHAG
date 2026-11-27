@@ -10,6 +10,10 @@
    tự mở khóa. Không dùng cho dữ liệu nhạy cảm.
    Trạng thái bật/tắt bài chỉ lưu trên trình duyệt này
    (localStorage); muốn áp dụng cho mọi học sinh thì đưa vào code.
+   Bảng Quản lý liệt kê cả bài chỉ có trong ngân hàng ôn tập
+   (khóa "bank-<khối>-<số bài>", gắn nhãn "chỉ ôn tập") để thầy
+   tắt được; các bài đó không có khung bài học nên chỉ ẩn khỏi
+   phần ôn tập, không ảnh hưởng trang bài học.
 
    File này không sửa nội dung bài học, ngân hàng câu hỏi hay
    thang điểm — chỉ thêm lớp quản lý hiển thị. Mọi điểm móc nối
@@ -160,6 +164,40 @@
           if (!exists) LESSONS_LIST.push({ grade: g, key: key, title: "Bài " + num, num: num });
         }
       });
+      /* Thêm các bài chỉ có trong ngân hàng ôn tập (không có khung bài
+         học trên web) để thầy tắt/bật được: khóa "bank-<khối>-<số bài>".
+         Tên bài lấy từ hoạt động ngân hàng (src "Bài N · Tên · Dạng X"). */
+      var bank = window.THOC_DATA && window.THOC_DATA[g] && window.THOC_DATA[g].reviewBank;
+      if (bank && bank.acts){
+        var bankNames = {};
+        Object.keys(bank.acts).forEach(function (aid){
+          var src = bank.acts[aid] && bank.acts[aid].src;
+          if (!src) return;
+          var m = String(src).match(/^Bài\s+([\d.]+)\s*·\s*([^·]+?)\s*·\s*Dạng\s*[12]\s*$/);
+          if (!m) return;
+          if (!bankNames[m[1]]) bankNames[m[1]] = m[2].replace(/\s+/g, " ").trim();
+        });
+        Object.keys(bankNames).forEach(function (num){
+          if (NUM_TO_KEY[g][num]) return;
+          var key = "bank-" + g + "-" + num;
+          NUM_TO_KEY[g][num] = key;
+          LESSONS_LIST.push({ grade: g, key: key, title: "Bài " + num + " · " + bankNames[num], num: num, bankOnly: true });
+        });
+      }
+    });
+    /* Xếp theo khối rồi theo số bài để bảng Quản lý liệt kê đúng thứ tự
+       bài học (bài chỉ-ngân-hàng xen kẽ đúng vị trí của nó). */
+    var gradeOrder = {};
+    GRADES.forEach(function (g, i){ gradeOrder[g] = i; });
+    function numParts(n){ return String(n == null ? "9999" : n).split(".").map(function (x){ return parseInt(x, 10) || 0; }); }
+    LESSONS_LIST.sort(function (a, b){
+      if (gradeOrder[a.grade] !== gradeOrder[b.grade]) return gradeOrder[a.grade] - gradeOrder[b.grade];
+      var pa = numParts(a.num), pb = numParts(b.num);
+      for (var i = 0; i < Math.max(pa.length, pb.length); i++){
+        var d = (pa[i] || 0) - (pb[i] || 0);
+        if (d) return d;
+      }
+      return 0;
     });
   }
   function lessonTitle(g, key){
@@ -170,12 +208,12 @@
   }
   function visibleCount(g){
     var n = 0;
-    LESSONS_LIST.forEach(function (L){ if (L.grade === g && !isLessonHidden(g, L.key)) n++; });
+    LESSONS_LIST.forEach(function (L){ if (L.grade === g && !L.bankOnly && !isLessonHidden(g, L.key)) n++; });
     return n;
   }
   function totalCount(g){
     var n = 0;
-    LESSONS_LIST.forEach(function (L){ if (L.grade === g) n++; });
+    LESSONS_LIST.forEach(function (L){ if (L.grade === g && !L.bankOnly) n++; });
     return n;
   }
 
@@ -252,6 +290,7 @@
 
   /* ---------------- Áp dụng trạng thái hiển thị ---------------- */
   function cardFor(L){
+    if (L.bankOnly) return null;   /* bài chỉ-ngân-hàng không có thẻ bài học */
     var panel = $("panel-" + L.grade);
     if (!panel) return null;
     var link = panel.querySelector('a.lesson-card[href="#' + L.key + '"]');
@@ -520,6 +559,7 @@
         if (!hidden) on++;
         var row = el("label", "adm-row");
         var name = el("span", "adm-lesson" + (hidden ? " adm-off" : ""), L.title);
+        if (L.bankOnly) name.appendChild(el("span", "adm-bank-tag", "chỉ ôn tập"));
         var sw = el("span", "adm-switch");
         var cb = document.createElement("input");
         cb.type = "checkbox";
