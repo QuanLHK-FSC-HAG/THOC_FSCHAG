@@ -303,7 +303,7 @@
       /* Ôn tập: học sinh tự chọn bài, dạng và số câu */
       .rv-field-lessons{min-width:280px;flex:1 1 340px}
       .rv-lessons{border:1.5px solid var(--line);border-radius:10px;padding:4px 12px;background:var(--card);max-height:190px;overflow:auto}
-      .rv-check{display:flex;gap:9px;align-items:flex-start;padding:7px 0;font-size:14.5px;line-height:1.45;cursor:pointer}
+      .rv-check{display:flex;gap:9px;align-items:flex-start;flex-wrap:wrap;padding:7px 0;font-size:14.5px;line-height:1.45;cursor:pointer}
       .rv-check input[type="checkbox"]{width:19px;height:19px;margin-top:1px;accent-color:var(--blue);flex:none;cursor:pointer}
       .rv-checks{display:flex;flex-direction:column;gap:2px}
       .rv-mini-row{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
@@ -315,6 +315,10 @@
       .rv-count-row input[type="number"]:focus{outline:3px solid var(--orange);outline-offset:1px;border-color:var(--blue)}
       .rv-check span:first-of-type{flex:1;min-width:0}
       .rv-lesson-counts{margin-left:auto;flex:none;font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap;padding-left:8px}
+      .rv-lesson-n{flex:none;width:64px;border:1.5px solid var(--line);border-radius:8px;padding:5px 6px;font:inherit;font-size:14px;font-weight:700;text-align:center;background:var(--card);color:var(--ink);min-height:32px}
+      .rv-lesson-n:focus{outline:3px solid var(--orange);outline-offset:1px;border-color:var(--blue)}
+      .rv-lesson-n:disabled{opacity:.45;cursor:not-allowed}
+      .rv-total-num{font-size:24px;font-weight:800;color:var(--blue);line-height:1;min-width:60px;text-align:center}
       .rv-empty{margin:6px 0;font-size:14px;color:var(--ink-2)}
       .review-box .review-bank-note{max-width:none}
       .rv-src{display:inline-block;font-size:12px;font-weight:700;background:var(--blue-soft);color:var(--blue);border-radius:999px;padding:3px 11px;margin-bottom:9px}

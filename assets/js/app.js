@@ -1010,7 +1010,7 @@
       var rvLessonsNoneBtn = $("rvLessonsNone");
       var rvForm1 = $("rvForm1");
       var rvForm2 = $("rvForm2");
-      var rvCountInput = $("rvCountInput");
+      var rvCountTotal = $("rvCountTotal");
       var rvCountMax = $("rvCountMax");
       var rvCountAllBtn = $("rvCountAll");
       var rvItems = [];
@@ -1159,16 +1159,17 @@
       /* Ngân hàng sau khi lọc theo bài và dạng học sinh đã chọn — chỉ
          Dạng 1 và Dạng 2 (Dạng 3 tự luận không nằm trong bộ ôn tập).
          Gom Đúng/Sai theo hoạt động, 4 ý thành 1 câu, như rvPools. */
-      function rvFilteredPools(g){
-        var sel = rvSelectedLessons();
+      /* Bộ câu hỏi của RIÊNG một bài (theo dạng đang chọn, chỉ tính bài
+         đang bật): Dạng 1 = câu trắc nghiệm; Dạng 2 = cụm 4 ý Đúng/Sai. */
+      function rvLessonPools(g, num){
+        var bank = REVIEW_BANK[g];
         var forms = rvSelectedForms();
         var want1 = forms.indexOf(1) >= 0, want2 = forms.indexOf(2) >= 0;
-        var bank = REVIEW_BANK[g];
         var d1 = [], d2 = [], tfByAct = {}, tfOrder = [];
         if (!bank) return { d1: d1, d2: d2 };
         bank.qs.forEach(function(q){
+          if (rvLessonNum(g, q) !== num) return;
           if (window.THOC_ADMIN && window.THOC_ADMIN.isReviewHidden && window.THOC_ADMIN.isReviewHidden(g, q)) return;
-          if (sel[rvLessonNum(g, q)] !== true) return;
           if (q.t === "single" && q.o && q.o.length === 4){ if (want1) d1.push(q); }
           else if (q.t === "tf"){
             if (!want2) return;
@@ -1184,15 +1185,67 @@
         });
         return { d1: d1, d2: d2 };
       }
-      function rvFilteredTotal(g){
-        var p = rvFilteredPools(g);
+      function rvFilteredPools(g){
+        var out = { d1: [], d2: [] };
+        rvEnabledLessons(g).forEach(function(L){
+          if (rvSelectedLessons()[L.num] !== true) return;
+          var p = rvLessonPools(g, L.num);
+          out.d1 = out.d1.concat(p.d1);
+          out.d2 = out.d2.concat(p.d2);
+        });
+        return out;
+      }
+      /* Ô nhập số câu của một bài (nằm ngay trên dòng chọn bài đó). */
+      function rvLessonInput(num){
+        var inputs = qsa(".rv-lesson-n", rvLessonsBox);
+        for (var i = 0; i < inputs.length; i++){
+          if (inputs[i].getAttribute("data-num") === String(num)) return inputs[i];
+        }
+        return null;
+      }
+      /* Số câu tối đa của một bài theo dạng đang chọn (D1 + D2). */
+      function rvLessonMax(g, num){
+        var p = rvLessonPools(g, num);
         return p.d1.length + p.d2.length;
       }
-      /* Số câu học sinh muốn làm: đọc từ ô nhập, kẹp trong [1, tổng bộ đã chọn]. */
-      function rvWantedCount(total){
-        var v = parseInt(rvCountInput.value, 10);
-        if (isNaN(v) || v < 1) return Math.min(10, total);
-        return Math.min(v, total);
+      /* Số câu học sinh muốn làm ở một bài: đọc từ ô nhập của bài đó,
+         kẹp trong [0, max của bài]. Bài không được tick thì tính 0. */
+      function rvLessonWanted(g, num){
+        if (rvSelectedLessons()[num] !== true) return 0;
+        var inp = rvLessonInput(num);
+        if (!inp) return rvLessonMax(g, num);
+        var v = parseInt(inp.value, 10);
+        if (isNaN(v) || v < 0) return 0;
+        return Math.min(v, rvLessonMax(g, num));
+      }
+      /* Chia n câu của một bài ra hai dạng theo tỉ lệ số câu từng dạng
+         trong bài (phần dư chia theo phần lẻ lớn nhất; mỗi dạng đang
+         chọn được ít nhất 1 câu khi n đủ lớn), kẹp trong [0, max từng dạng]. */
+      function rvSplit(n, a, b){
+        var alloc = [0, 0];
+        if (n <= 0 || (a + b) === 0) return alloc;
+        n = Math.min(n, a + b);
+        if (a === 0) return [0, n];
+        if (b === 0) return [n, 0];
+        var x0 = n * a / (a + b), x1 = n * b / (a + b);
+        alloc[0] = Math.floor(x0);
+        alloc[1] = Math.floor(x1);
+        var rem = n - alloc[0] - alloc[1];
+        if (rem > 0){
+          if (x0 - alloc[0] >= x1 - alloc[1]) alloc[0]++; else alloc[1]++;
+        }
+        if (n >= 2){
+          if (alloc[0] === 0){ alloc[0] = 1; alloc[1]--; }
+          if (alloc[1] === 0){ alloc[1] = 1; alloc[0]--; }
+        }
+        if (alloc[1] > b){ alloc[0] += alloc[1] - b; alloc[1] = b; }
+        if (alloc[0] > a){ alloc[1] += alloc[0] - a; alloc[0] = a; }
+        if (alloc[0] < 0) alloc[0] = 0;
+        if (alloc[1] < 0) alloc[1] = 0;
+        var left = n - alloc[0] - alloc[1];
+        if (left > 0 && alloc[0] < a){ var add = Math.min(left, a - alloc[0]); alloc[0] += add; left -= add; }
+        if (left > 0 && alloc[1] < b){ var add2 = Math.min(left, b - alloc[1]); alloc[1] += add2; left -= add2; }
+        return alloc;
       }
       /* Số câu từng dạng của một bài (để hiện ngay trên từng dòng chọn bài):
          Dạng 1 = số câu trắc nghiệm; Dạng 2 = số câu Đúng/Sai (gom 4 ý
@@ -1238,42 +1291,73 @@
           var cs = document.createElement("span");
           cs.className = "rv-lesson-counts";
           cs.textContent = "D1: " + cnt.d1 + " · D2: " + cnt.d2;
-          lab.appendChild(cb); lab.appendChild(sp); lab.appendChild(cs);
+          /* Ô nhập số câu riêng của bài này (mặc định = hết bài, kẹp
+             theo max của bài); bỏ trống thì tính 0 câu. */
+          var inp = document.createElement("input");
+          inp.type = "number"; inp.className = "rv-lesson-n";
+          inp.setAttribute("data-num", L.num);
+          inp.min = "0";
+          var mx = rvLessonMax(g, L.num);
+          inp.max = String(mx);
+          inp.value = String(mx);
+          inp.inputMode = "numeric";
+          inp.setAttribute("aria-label", "Số câu muốn làm ở Bài " + L.num);
+          inp.addEventListener("input", rvUpdateSelection);
+          inp.addEventListener("change", function(){
+            var v = parseInt(inp.value, 10);
+            if (isNaN(v)) inp.value = "0";
+            rvUpdateSelection();
+          });
+          lab.appendChild(cb); lab.appendChild(sp); lab.appendChild(cs); lab.appendChild(inp);
           rvLessonsBox.appendChild(lab);
         });
         rvUpdateSelection();
       }
-      /* Cập nhật ghi chú ngân hàng + bộ đã chọn và số câu tối đa mỗi khi
-         học sinh đổi bài, đổi dạng hay đổi lớp. */
+      /* Cập nhật ghi chú ngân hàng + tổng số câu tự tính mỗi khi học
+         sinh đổi bài, đổi dạng hay đổi số câu của từng bài. */
       function rvUpdateSelection(){
         var g = rvGradeSel.value;
         var bank = REVIEW_BANK[g];
         var pools = rvPools(g);
         var fp = rvFilteredPools(g);
-        var total = fp.d1.length + fp.d2.length;
-        var maxPts = fp.d1.length * 0.25 + fp.d2.length;
+        var maxTotal = fp.d1.length + fp.d2.length;
+        /* Cập nhật từng ô nhập số câu của bài: max theo dạng đang chọn,
+           kẹp giá trị vượt max, tắt ô khi bài không được tick; tổng số
+           câu = cộng số câu từng bài đã chọn. */
+        var sel = rvSelectedLessons();
+        var wantedD1 = 0, wantedD2 = 0, total = 0;
+        rvEnabledLessons(g).forEach(function(L){
+          var inp = rvLessonInput(L.num);
+          if (!inp) return;
+          var p = rvLessonPools(g, L.num);
+          var mx = p.d1.length + p.d2.length;
+          inp.max = String(mx);
+          inp.disabled = sel[L.num] !== true;
+          if (sel[L.num] === true){
+            var v = parseInt(inp.value, 10);
+            if (!isNaN(v) && v > mx) inp.value = String(mx);
+            var n = rvLessonWanted(g, L.num);
+            var sp = rvSplit(n, p.d1.length, p.d2.length);
+            wantedD1 += sp[0]; wantedD2 += sp[1]; total += n;
+          }
+        });
+        var maxPts = wantedD1 * 0.25 + wantedD2;
         var note = "";
         if (bank){
           note = "Ngân hàng Lớp " + g + " gồm " + pools.d1.length + " câu trắc nghiệm (Dạng 1) và " + pools.d2.length + " câu Đúng/Sai (Dạng 2). ";
         }
-        var nLessons = Object.keys(rvSelectedLessons()).length;
+        var nLessons = Object.keys(sel).length;
         var nForms = rvSelectedForms().length;
         if (!nLessons || !nForms){
           note += "Em hãy chọn ít nhất 1 bài và 1 dạng câu hỏi để bắt đầu ôn tập.";
         } else {
-          note += "Đã chọn " + nLessons + " bài · Dạng 1: " + fp.d1.length + " câu · Dạng 2: " + fp.d2.length + " câu — làm hết bộ đã chọn em đạt tối đa " + fmt(maxPts) + " điểm.";
+          note += "Đã chọn " + nLessons + " bài · Dạng 1: " + wantedD1 + " câu · Dạng 2: " + wantedD2 + " câu — làm hết bộ đã chọn em đạt tối đa " + fmt(maxPts) + " điểm.";
         }
         rvBankNote.textContent = note;
-        rvCountMax.textContent = total > 0
-          ? "Tối đa " + total + " câu trong bộ đã chọn."
+        rvCountTotal.textContent = String(total);
+        rvCountMax.textContent = maxTotal > 0
+          ? "Tối đa " + maxTotal + " câu trong bộ đã chọn."
           : "Chưa có câu hỏi nào trong bộ đã chọn.";
-        rvCountInput.max = total > 0 ? String(total) : "1";
-        if (total > 0){
-          var v = parseInt(rvCountInput.value, 10);
-          if (isNaN(v) || v < 1) v = Math.min(10, total);
-          if (v > total) v = total;
-          rvCountInput.value = String(v);
-        }
         rvStartBtn.disabled = total === 0;
       }
 
@@ -1304,10 +1388,13 @@
       });
       rvForm1.addEventListener("change", rvUpdateSelection);
       rvForm2.addEventListener("change", rvUpdateSelection);
-      rvCountInput.addEventListener("change", rvUpdateSelection);
       rvCountAllBtn.addEventListener("click", function(){
-        var total = rvFilteredTotal(rvGradeSel.value);
-        if (total > 0){ rvCountInput.value = String(total); rvCountInput.focus(); }
+        var g = rvGradeSel.value;
+        rvEnabledLessons(g).forEach(function(L){
+          var inp = rvLessonInput(L.num);
+          if (inp && !inp.disabled) inp.value = String(rvLessonMax(g, L.num));
+        });
+        rvUpdateSelection();
       });
 
       function rvSrcBadge(g, act){
@@ -1610,47 +1697,24 @@
         var g = rvGradeSel.value;
         var bank = REVIEW_BANK[g];
         if (!bank || !bank.qs.length) return;
-        var pools = rvFilteredPools(g);
-        /* Bộ ôn tập chỉ gồm Dạng 1 và Dạng 2 theo lựa chọn của học sinh
-           (Dạng 3 tự luận không nằm trong bộ ôn tập); thứ tự Dạng 1 →
-           Dạng 2, trong từng dạng câu hỏi được xáo trộn ngẫu nhiên. Khi
-           chọn số câu nhỏ hơn bộ đã chọn, số câu được chia theo tỉ lệ
-           của từng dạng (mỗi dạng đang chọn đều được ít nhất 1 câu khi
-           số câu chọn đủ lớn) để bộ ôn tập luôn đủ hai dạng như đề kiểm
-           tra, thay vì chỉ toàn Dạng 1. */
-        var d1s = rvShuffle(pools.d1.slice()).map(function(q){ return { kind: 1, q: q }; });
-        var d2s = rvShuffle(pools.d2.slice()).map(function(gr){ return { kind: 2, group: gr }; });
-        var lists = [d1s, d2s];
-        var total = d1s.length + d2s.length;
-        if (!total) return;
-        var n = rvWantedCount(total);
-        var seq;
-        if (n >= total){
-          seq = d1s.concat(d2s);
-        } else {
-          var alloc = lists.map(function(lst){ return Math.floor(n * lst.length / total); });
-          var rem = n - alloc.reduce(function(s, x){ return s + x; }, 0);
-          var frac = lists.map(function(lst, i){ return { i: i, f: n * lst.length / total - alloc[i] }; })
-                          .sort(function(a, b){ return b.f - a.f; });
-          var guard = 0;
-          while (rem > 0 && guard < 100){
-            guard++;
-            for (var fi = 0; fi < frac.length && rem > 0; fi++){
-              var ix = frac[fi].i;
-              if (alloc[ix] < lists[ix].length){ alloc[ix]++; rem--; }
-            }
-          }
-          var forms = lists.map(function(lst, i){ return i; }).filter(function(i){ return lists[i].length > 0; });
-          if (n >= forms.length){
-            forms.forEach(function(i){
-              if (alloc[i] === 0){
-                var donor = alloc.indexOf(Math.max.apply(null, alloc));
-                if (donor !== i && alloc[donor] > 1){ alloc[donor]--; alloc[i] = 1; }
-              }
-            });
-          }
-          seq = d1s.slice(0, alloc[0]).concat(d2s.slice(0, alloc[1]));
-        }
+        /* Mỗi bài đóng góp đúng số câu học sinh đã nhập cho bài đó,
+           chia theo tỉ lệ Dạng 1/Dạng 2 trong bài (Dạng 3 tự luận
+           không nằm trong bộ ôn tập); câu hỏi trong từng bài được xáo
+           trộn, rồi trộn chung lại theo dạng để bộ ôn tập vẫn hiện
+           khối Dạng 1 trước, khối Dạng 2 sau như trước. */
+        var sel = rvSelectedLessons();
+        var d1s = [], d2s = [];
+        rvEnabledLessons(g).forEach(function(L){
+          if (sel[L.num] !== true) return;
+          var n = rvLessonWanted(g, L.num);
+          if (n <= 0) return;
+          var p = rvLessonPools(g, L.num);
+          var sp = rvSplit(n, p.d1.length, p.d2.length);
+          rvShuffle(p.d1).slice(0, sp[0]).forEach(function(q){ d1s.push({ kind: 1, q: q }); });
+          rvShuffle(p.d2).slice(0, sp[1]).forEach(function(gr){ d2s.push({ kind: 2, group: gr }); });
+        });
+        var seq = rvShuffle(d1s).concat(rvShuffle(d2s));
+        if (!seq.length) return;
         rvClearQuiz();
         var lastKind = 0;
         seq.forEach(function(entry, idx){
