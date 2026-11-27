@@ -76,7 +76,7 @@
 
         <div class="review-box" id="on-tap-hk1">
           <h3>Ôn tập cuối học kì 1</h3>
-          <p style="margin:0">Câu hỏi lấy từ chính các hoạt động em đã học — không có câu ngoài bài. Mỗi bộ gồm 3 dạng, xếp đúng thứ tự như đề kiểm tra:</p>
+          <p style="margin:0">Câu hỏi lấy từ chính các hoạt động em đã học — không có câu ngoài bài. Em tự chọn bài muốn ôn, dạng câu hỏi và số câu; mỗi bộ xếp đúng thứ tự như đề kiểm tra:</p>
           <div class="form-cards">
             <div class="form-card">
               <span class="fc-tag">DẠNG 1</span>
@@ -92,17 +92,10 @@
               <p>1 nội dung chung kèm 4 ý Đúng/Sai — mỗi ý đúng được 0,25 điểm.</p>
               <span class="fc-how">✓ Chấm ngay khi nộp</span>
             </div>
-            <div class="form-card o">
-              <span class="fc-tag">DẠNG 3</span>
-              <h4>Tự luận</h4>
-              <span class="fc-pts">1 <small>điểm / câu</small></span>
-              <p>Em viết bài làm, nộp xong xem đáp án gợi ý để đối chiếu và tự chấm.</p>
-              <span class="fc-badge">KHÔNG CHẤM ĐIỂM — EM TỰ CHẤM</span>
-            </div>
           </div>
           <div class="flow flow-3" role="list" aria-label="3 bước làm bài ôn tập">
-            <div class="flow-step" role="listitem"><span class="n">1</span><b>Chọn lớp &amp; số câu</b><p>Chọn ở hai mục ngay bên dưới.</p></div>
-            <div class="flow-step c-orange" role="listitem"><span class="n">2</span><b>Bắt đầu ôn tập</b><p>Câu hỏi được xáo trộn thành bộ mới; thứ tự 3 dạng giữ nguyên.</p></div>
+            <div class="flow-step" role="listitem"><span class="n">1</span><b>Chọn lớp, bài, dạng &amp; số câu</b><p>Chọn ở các mục ngay bên dưới.</p></div>
+            <div class="flow-step c-orange" role="listitem"><span class="n">2</span><b>Bắt đầu ôn tập</b><p>Câu hỏi được xáo trộn thành bộ mới; thứ tự 2 dạng giữ nguyên.</p></div>
             <div class="flow-step c-green" role="listitem"><span class="n">3</span><b>Nộp bài &amp; xem kết quả</b><p>Thấy ngay điểm, đáp án và giải thích. Chưa vững phần nào, học lại phần Tóm tắt của bài đó rồi làm bộ mới.</p></div>
           </div>
           <div class="review-controls">
@@ -115,19 +108,32 @@
                 <option value="10">Lớp 10</option>
                 <option value="11">Lớp 11</option>
               </select>
-              <p class="review-bank-note" id="rvBankNote"></p>
             </div>
-            <div class="review-field">
-              <label id="rvCountLabel">2 · Số câu hỏi mỗi lần làm</label>
-              <div class="count-btns" role="group" aria-labelledby="rvCountLabel" id="rvCounts">
-                <button type="button" class="count-btn" data-n="5" aria-pressed="false">5 câu</button>
-                <button type="button" class="count-btn" data-n="10" aria-pressed="true">10 câu</button>
-                <button type="button" class="count-btn" data-n="15" aria-pressed="false">15 câu</button>
-                <button type="button" class="count-btn" data-n="20" aria-pressed="false">20 câu</button>
-                <button type="button" class="count-btn" data-n="0" aria-pressed="false">Tất cả</button>
+            <div class="review-field rv-field-lessons">
+              <label id="rvLessonsLabel">2 · Bài muốn ôn (chỉ hiện bài đang bật)</label>
+              <div class="rv-lessons" id="rvLessons" role="group" aria-labelledby="rvLessonsLabel"></div>
+              <div class="rv-mini-row">
+                <button type="button" class="rv-mini-btn" id="rvLessonsAll">Chọn tất cả</button>
+                <button type="button" class="rv-mini-btn" id="rvLessonsNone">Bỏ chọn tất cả</button>
               </div>
             </div>
+            <div class="review-field">
+              <label id="rvFormsLabel">3 · Dạng câu hỏi</label>
+              <div class="rv-checks" role="group" aria-labelledby="rvFormsLabel">
+                <label class="rv-check"><input type="checkbox" id="rvForm1" checked> <span><b>Dạng 1 · Trắc nghiệm</b> — 0,25 điểm/câu</span></label>
+                <label class="rv-check"><input type="checkbox" id="rvForm2" checked> <span><b>Dạng 2 · Đúng/Sai</b> — 1 điểm/câu (4 ý)</span></label>
+              </div>
+            </div>
+            <div class="review-field">
+              <label for="rvCountInput">4 · Số câu hỏi mỗi lần làm</label>
+              <div class="rv-count-row">
+                <input type="number" id="rvCountInput" min="1" value="10" inputmode="numeric" aria-describedby="rvCountMax">
+                <button type="button" class="btn ghost" id="rvCountAll">Tất cả</button>
+              </div>
+              <p class="review-bank-note" id="rvCountMax"></p>
+            </div>
           </div>
+          <p class="review-bank-note" id="rvBankNote"></p>
           <div class="btn-row">
             <button class="btn orange" type="button" id="rvStart">Bắt đầu ôn tập</button>
           </div>

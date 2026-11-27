@@ -300,6 +300,21 @@
       @media (prefers-color-scheme: dark){.count-btn[aria-pressed="true"]{color:#08131f}}
       .count-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
       .review-note{font-size:13.5px;color:var(--ink-2);margin:14px 0 0}
+      /* Ôn tập: học sinh tự chọn bài, dạng và số câu */
+      .rv-field-lessons{min-width:280px;flex:1 1 340px}
+      .rv-lessons{border:1.5px solid var(--line);border-radius:10px;padding:4px 12px;background:var(--card);max-height:190px;overflow:auto}
+      .rv-check{display:flex;gap:9px;align-items:flex-start;padding:7px 0;font-size:14.5px;line-height:1.45;cursor:pointer}
+      .rv-check input[type="checkbox"]{width:19px;height:19px;margin-top:1px;accent-color:var(--blue);flex:none;cursor:pointer}
+      .rv-checks{display:flex;flex-direction:column;gap:2px}
+      .rv-mini-row{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+      .rv-mini-btn{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 13px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;min-height:34px}
+      .rv-mini-btn:hover{border-color:var(--blue)}
+      .rv-mini-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+      .rv-count-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .rv-count-row input[type="number"]{border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:15.5px;font-weight:700;background:var(--card);color:var(--ink);min-height:46px;width:110px}
+      .rv-count-row input[type="number"]:focus{outline:3px solid var(--orange);outline-offset:1px;border-color:var(--blue)}
+      .rv-empty{margin:6px 0;font-size:14px;color:var(--ink-2)}
+      .review-box .review-bank-note{max-width:none}
       .rv-src{display:inline-block;font-size:12px;font-weight:700;background:var(--blue-soft);color:var(--blue);border-radius:999px;padding:3px 11px;margin-bottom:9px}
       #rvQuiz .subq:first-child{border-top:none;padding-top:6px}
       #rvQuiz input[type="text"]{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:15.5px;background:var(--card);color:var(--ink);min-height:48px}
