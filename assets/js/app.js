@@ -975,6 +975,8 @@
         var bank = REVIEW_BANK[g];
         var d1 = [], d3 = [], tfByAct = {}, tfOrder = [];
         bank.qs.forEach(function(q){
+          /* Quản lý (admin): bỏ câu hỏi của bài đang tắt khỏi bộ ôn tập. */
+          if (window.THOC_ADMIN && window.THOC_ADMIN.isReviewHidden && window.THOC_ADMIN.isReviewHidden(g, q)) return;
           if (q.t === "single" && q.o && q.o.length === 4) d1.push(q);
           else if (q.t === "text") d3.push(q);
           else if (q.t === "tf"){
@@ -1679,10 +1681,22 @@
         });
       }
 
+      /* Quản lý (admin): các hàm hỗ trợ ẩn bài — dùng window.THOC_ADMIN
+         (định nghĩa trong assets/js/admin.js; nếu file đó chưa nạp thì
+         mọi bài đều hiện như bình thường). */
+      function adminLessonHidden(g, key){
+        return !!(window.THOC_ADMIN && window.THOC_ADMIN.isLessonHidden && window.THOC_ADMIN.isLessonHidden(g, key));
+      }
+      function visibleLessons(g){
+        return (LESSONS[g] || []).filter(function(L){ return L.tk || !adminLessonHidden(g, L.key); });
+      }
+
       function buildSidebar(g){
         sideLessonsH.textContent = "Bài học — Lớp " + g;
         sideLessons.innerHTML = "";
         LESSONS[g].forEach(function(L){
+          /* Quản lý (admin): không hiện nút bài đang tắt trong menu bên. */
+          if (!L.tk && adminLessonHidden(g, L.key)) return;
           var b = document.createElement("button");
           b.type = "button";
           b.className = "side-lesson-btn" + (L.tk ? " tk" : "");
@@ -1710,14 +1724,18 @@
         if (!LESSONS[g] || !LESSONS[g].length) return;
         var found = null;
         LESSONS[g].forEach(function(L){ if (L.key === key) found = L; });
-        if (!found) found = LESSONS[g][0];
+        /* Quản lý (admin): bài đang tắt thì mở bài đang bật đầu tiên. */
+        if (!found || (!found.tk && adminLessonHidden(g, found.key))){
+          found = visibleLessons(g)[0] || LESSONS[g][0];
+        }
         activeGrade = g;
         current[g] = found.key;
         LESSONS[g].forEach(function(L){ L.frame.classList.toggle("active", L === found); });
         frameTitle.textContent = found.tk ? ("Tổng kết — Lớp " + g) : found.title;
-        var idx = LESSONS[g].indexOf(found);
+        var vis = visibleLessons(g);
+        var idx = vis.indexOf(found);
         prevBtn.disabled = idx <= 0;
-        nextBtn.disabled = idx >= LESSONS[g].length - 1;
+        nextBtn.disabled = idx < 0 || idx >= vis.length - 1;
         qsa(".side-lesson-btn", sideLessons).forEach(function(b){
           b.setAttribute("aria-current", b.getAttribute("data-key") === found.key ? "true" : "false");
         });
@@ -1727,13 +1745,15 @@
 
       prevBtn.addEventListener("click", function(){
         if (!activeGrade) return;
-        var idx = LESSONS[activeGrade].map(function(L){ return L.key; }).indexOf(current[activeGrade]);
-        if (idx > 0) showLesson(activeGrade, LESSONS[activeGrade][idx - 1].key, true);
+        var vis = visibleLessons(activeGrade);
+        var idx = vis.map(function(L){ return L.key; }).indexOf(current[activeGrade]);
+        if (idx > 0) showLesson(activeGrade, vis[idx - 1].key, true);
       });
       nextBtn.addEventListener("click", function(){
         if (!activeGrade) return;
-        var idx = LESSONS[activeGrade].map(function(L){ return L.key; }).indexOf(current[activeGrade]);
-        if (idx >= 0 && idx < LESSONS[activeGrade].length - 1) showLesson(activeGrade, LESSONS[activeGrade][idx + 1].key, true);
+        var vis = visibleLessons(activeGrade);
+        var idx = vis.map(function(L){ return L.key; }).indexOf(current[activeGrade]);
+        if (idx >= 0 && idx < vis.length - 1) showLesson(activeGrade, vis[idx + 1].key, true);
       });
 
       /* Khi chọn lớp ở màn hình đầu: dựng menu bên và mở bài đầu tiên
@@ -1757,6 +1777,8 @@
           var target = id ? document.getElementById(id) : null;
           if (target){
             var frame = target.closest ? target.closest(".lesson-frame") : null;
+            /* Quản lý (admin): không mở bài đang tắt qua mắt xích. */
+            if (frame && adminLessonHidden(frame.getAttribute("data-grade"), frame.getAttribute("data-key"))){ e.preventDefault(); return; }
             if (frame && !frame.classList.contains("active")){
               e.preventDefault();
               showLesson(frame.getAttribute("data-grade"), frame.getAttribute("data-key"), false);

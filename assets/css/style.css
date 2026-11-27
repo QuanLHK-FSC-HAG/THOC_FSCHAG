@@ -411,3 +411,42 @@
         .note-row{grid-template-columns:1fr}
       }
     
+
+      /* ================= QUẢN LÝ (ADMIN) ================= */
+      .lesson-frame.lesson-hidden{display:none !important}
+      .admin-zone{display:flex;align-items:center;gap:10px}
+      .admin-btn{border:1.5px solid var(--line);background:transparent;color:var(--ink-2);border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;min-height:34px}
+      .admin-btn:hover{border-color:var(--blue);color:var(--blue)}
+      .admin-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+      .admin-badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;background:var(--green-soft);color:var(--green-deep);border:1px solid var(--green);border-radius:999px;padding:3px 10px}
+      .adm-overlay{position:fixed;inset:0;z-index:200;background:rgba(10,30,50,.55);display:none;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+      .adm-overlay.open{display:flex}
+      .adm-modal{background:var(--card);color:var(--ink);border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:520px;padding:22px;margin:auto 0}
+      .adm-modal.adm-panel{max-width:720px}
+      .adm-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px}
+      .adm-modal-head h3{margin:0;font-size:19px}
+      .adm-close{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:50%;width:36px;height:36px;font-size:19px;line-height:1;cursor:pointer}
+      .adm-close:hover{border-color:var(--orange);color:var(--orange)}
+      .adm-close:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+      .adm-field{display:block;font-weight:600;font-size:14.5px;margin:12px 0}
+      .adm-field input{display:block;width:100%;box-sizing:border-box;margin-top:6px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-weight:400;background:var(--card);color:var(--ink)}
+      .adm-field input:focus-visible{outline:3px solid var(--orange);outline-offset:1px}
+      .adm-remember{display:flex;align-items:center;gap:8px;font-size:14.5px;margin:12px 0;cursor:pointer}
+      .adm-remember input{width:18px;height:18px;accent-color:var(--green)}
+      .adm-error{color:var(--orange);font-weight:700;font-size:14px;margin:10px 0 0}
+      .adm-note{color:var(--ink-2);font-size:13.5px;margin:8px 0}
+      .adm-grade{margin-top:16px}
+      .adm-grade h4{margin:0 0 4px;font-size:16px;color:var(--blue)}
+      .adm-grade h4 .adm-count{font-size:12.5px;font-weight:600;color:var(--ink-2);margin-left:6px}
+      .adm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:14.5px}
+      .adm-row .adm-lesson{flex:1 1 auto}
+      .adm-row .adm-off{color:var(--ink-2)}
+      .adm-switch{position:relative;flex:none;display:inline-block;width:46px;height:26px}
+      .adm-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+      .adm-slider{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:background .15s ease}
+      .adm-slider:before{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s ease}
+      .adm-switch input:checked + .adm-slider{background:var(--green)}
+      .adm-switch input:checked + .adm-slider:before{transform:translateX(20px)}
+      .adm-switch input:focus-visible + .adm-slider{outline:3px solid var(--orange);outline-offset:2px}
+      .adm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+      @media (max-width:560px){.adm-modal{padding:16px}.adm-row{font-size:14px}}
