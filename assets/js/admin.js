@@ -199,6 +199,29 @@
     return !!(key && isLessonHidden(g, key));
   }
 
+  /* ---------------- Tổng kết: hoạt động thuộc bài nào? ---------------- */
+  /* Tên hoạt động trong THOC_DATA[g].names luôn bắt đầu bằng
+     "Bài <số bài> · ...", nên suy ra bài của hoạt động từ tên đó
+     rồi đối chiếu với bản đồ số bài → mã section (NUM_TO_KEY). */
+  function activityLessonNum(g, actId){
+    try {
+      var names = window.THOC_DATA && window.THOC_DATA[g] && window.THOC_DATA[g].names;
+      if (!names) return null;
+      var nm = names[actId];
+      if (!nm) return null;
+      var m = String(nm).match(/^Bài\s+([\d.]+)/);
+      return m ? m[1] : null;
+    } catch (e) { return null; }
+  }
+  function isActivityHidden(g, actId){
+    var num = activityLessonNum(g, actId);
+    if (num === null) return false;
+    var byNum = NUM_TO_KEY[String(g)] || {};
+    var key = byNum[num];
+    if (!key) return false;
+    return isLessonHidden(g, key);
+  }
+
   /* ---------------- Phiên đăng nhập ---------------- */
   function isAuthed(){
     try {
@@ -275,6 +298,9 @@
     });
     updateGradeCounts();
     ensureVisibleFrame();
+    /* Làm mới các bảng Tổng kết (tên bài, điểm, tổng điểm, chữ tĩnh)
+       theo đúng bài đang bật — hàm này do app.js cung cấp. */
+    if (window.THOC_REFRESH_SUMMARIES) window.THOC_REFRESH_SUMMARIES();
   }
   /* Làm mới ghi chú ngân hàng ôn tập (đã tính theo bài đang bật). */
   function refreshReviewNote(){
@@ -448,7 +474,11 @@
     allOff.type = "button";
     allOff.addEventListener("click", function(){
       if (!window.confirm("Tắt tất cả " + LESSONS_LIST.length + " bài? Học sinh sẽ không thấy bài học nào cho đến khi thầy bật lại.")) return;
-      LESSONS_LIST.forEach(function (L){ setLessonHidden(L.grade, L.key, true); });
+      LESSONS_LIST.forEach(function (L){
+        var arr = hiddenState[L.grade] || (hiddenState[L.grade] = []);
+        if (arr.indexOf(L.key) < 0) arr.push(L.key);
+      });
+      saveHidden();
       applyVisibility();
       renderPanelList();
       refreshReviewNote();
@@ -534,6 +564,7 @@
   window.THOC_ADMIN = {
     isLessonHidden: isLessonHidden,
     isReviewHidden: isReviewHidden,
+    isActivityHidden: isActivityHidden,
     applyVisibility: applyVisibility,
     isAuthed: isAuthed,
     lessons: LESSONS_LIST

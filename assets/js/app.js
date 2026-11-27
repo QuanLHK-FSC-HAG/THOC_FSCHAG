@@ -118,41 +118,104 @@
       function isG11(id){ return Object.prototype.hasOwnProperty.call(MAXES11, id); }
       function maxOf(id){ return isG7(id) ? MAXES7[id] : (isG8(id) ? MAXES8[id] : (isG10(id) ? MAXES10[id] : (isG11(id) ? MAXES11[id] : MAXES[id]))); }
 
-      function totalScore(){
-        return ORDER.reduce(function(s, id){ return s + state[id].score; }, 0);
+      /* ===== TỔNG KẾT THEO BÀI ĐANG BẬT (QUẢN LÝ) =====
+         Khi admin tắt một bài, Tổng kết của lớp phải loại các hoạt
+         động của bài đó ra (cả tên và điểm) và tính lại tổng điểm
+         ngay lập tức; bật lại thì bài đó trở lại Tổng kết. Ánh xạ
+         hoạt động → bài: tên hoạt động trong NAMES luôn bắt đầu bằng
+         "Bài <số bài> · ...", còn bài nào đang tắt thì hỏi
+         window.THOC_ADMIN (assets/js/admin.js). Khi admin.js chưa
+         nạp thì coi như mọi bài đều bật, nên lần render đầu vẫn đầy đủ. */
+      var TK_SECTION = { "6": "sec-tong-ket", "7": "sec-g7-tong-ket", "8": "sec-g8-tong-ket", "10": "sec-g10-tong-ket", "11": "sec-g11-tong-ket" };
+      function actHidden(g, id){
+        return !!(window.THOC_ADMIN && window.THOC_ADMIN.isActivityHidden && window.THOC_ADMIN.isActivityHidden(g, id));
       }
-      function doneCount(){
-        return ORDER.filter(function(id){ return state[id].done; }).length;
+      function visibleOrder(g, order){
+        return order.filter(function(id){ return !actHidden(g, id); });
+      }
+      function lessonNums(g, order, names, onlyVisible){
+        var seen = {}, nums = [];
+        order.forEach(function(id){
+          if (onlyVisible && actHidden(g, id)) return;
+          var m = String(names[id] || "").match(/^Bài\s+([\d.]+)/);
+          if (m && !seen[m[1]]){ seen[m[1]] = true; nums.push(m[1]); }
+        });
+        return nums;
+      }
+      /* Nhận xét: khi có bài đang tắt, câu "cả N bài: ..." / "nội dung
+         của N bài" sẽ sai nên đổi thành "các bài đang học". */
+      function adjustVerdict(text, g, order, names){
+        var vis = lessonNums(g, order, names, true).length;
+        var all = lessonNums(g, order, names, false).length;
+        if (vis === all) return text;
+        return text.replace(/cả \d+ bài:[^.]+\./, "các bài đang học.")
+                   .replace(/nội dung của \d+ bài/, "nội dung của các bài đang học");
+      }
+      /* Cập nhật các chữ tĩnh trong mục Tổng kết: tiêu đề "(Bài ...)",
+         câu mở đầu "của N bài", số tối đa "/MAX" sau Điểm của em và
+         sau Điểm đạt được. Sửa trực tiếp text node sẵn có nên không
+         cần sửa file dữ liệu. */
+      function setTrailingMax(el, max){
+        if (!el || !el.parentNode) return;
+        var sib = el.nextSibling;
+        while (sib && sib.nodeType !== 3) sib = sib.nextSibling;
+        if (!sib) return;
+        var m = sib.textContent.match(/^([\s\S]*?)\d+(?:[.,]\d+)?\s*$/);
+        if (m) sib.textContent = m[1] + fmt(max);
+      }
+      function updateSummaryStatics(g, order, names, visMax){
+        var sec = $(TK_SECTION[g]);
+        if (!sec) return;
+        var visNums = lessonNums(g, order, names, true);
+        var h2 = sec.querySelector("h2");
+        if (h2) h2.textContent = "Tổng kết — Lớp " + g + (visNums.length ? " (Bài " + visNums.join(", ") + ")" : "");
+        var intro = h2 ? h2.nextElementSibling : null;
+        if (intro && intro.tagName === "P"){
+          if (visNums.length){
+            intro.textContent = "Kết quả dưới đây được tính tự động từ tất cả các hoạt động của " + visNums.length + " bài em đã nộp trong phiên học này. Kết quả của mỗi hoạt động đã khóa ngay khi nộp nên không thay đổi.";
+          } else {
+            intro.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+          }
+        }
+        setTrailingMax($("scoreNow" + (g === "6" ? "" : g)), visMax);
+        setTrailingMax($("sumScore" + (g === "6" ? "" : g)), visMax);
       }
 
       function updateSummary(){
-        var total = totalScore(), done = doneCount();
+        var vis = visibleOrder("6", ORDER);
+        var visMax = vis.reduce(function(s, id){ return s + MAXES[id]; }, 0);
+        var total = vis.reduce(function(s, id){ return s + state[id].score; }, 0);
+        var done = vis.filter(function(id){ return state[id].done; }).length;
+        var totalAct = vis.length;
         $("scoreNow").textContent = fmt(total);
-        $("scoreTrack").style.width = (total / TOTAL_MAX * 100) + "%";
-        $("scoreDone").textContent = "Đã hoàn thành " + done + "/" + TOTAL_ACT + " hoạt động";
-        $("sumTotal").textContent = String(TOTAL_ACT);
+        $("scoreTrack").style.width = (visMax ? (total / visMax * 100) : 0) + "%";
+        $("scoreDone").textContent = "Đã hoàn thành " + done + "/" + totalAct + " hoạt động";
+        $("sumTotal").textContent = String(totalAct);
         $("sumDone").textContent = String(done);
         $("sumScore").textContent = fmt(total);
-        $("sumPct").textContent = Math.round(done / TOTAL_ACT * 100) + "%";
+        $("sumPct").textContent = (totalAct ? Math.round(done / totalAct * 100) : 0) + "%";
 
         var verdict = $("sumVerdict");
-        if (done === 0){
+        if (totalAct === 0){
+          verdict.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+        } else if (done === 0){
           verdict.textContent = "Hãy hoàn thành các hoạt động trong bài để nhận xét kết quả học tập.";
-        } else if (done < TOTAL_ACT){
-          verdict.textContent = "Em đã hoàn thành " + done + "/" + TOTAL_ACT + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
-        } else if (total >= TOTAL_MAX * 0.9){
+        } else if (done < totalAct){
+          verdict.textContent = "Em đã hoàn thành " + done + "/" + totalAct + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
+        } else if (total >= visMax * 0.9){
           verdict.textContent = "Xuất sắc! Em đã nắm vững kiến thức của cả 4 bài: mạng máy tính, Internet, mạng thông tin toàn cầu và tìm kiếm thông tin trên Internet.";
-        } else if (total >= TOTAL_MAX * 0.75){
+        } else if (total >= visMax * 0.75){
           verdict.textContent = "Tốt! Em đã hiểu phần lớn nội dung của 4 bài. Hãy xem lại giải thích ở những câu chưa đúng để nắm chắc hơn.";
-        } else if (total >= TOTAL_MAX * 0.5){
+        } else if (total >= visMax * 0.5){
           verdict.textContent = "Đạt yêu cầu cơ bản. Em nên đọc lại các hộp GHI VÀO VỞ và phần giải thích của các hoạt động chưa đạt tối đa.";
         } else {
           verdict.textContent = "Cần cố gắng thêm. Hãy học lại từng bài, chú ý các hộp GHI VÀO VỞ, rồi trao đổi với bạn hoặc thầy cô ở những chỗ chưa hiểu.";
         }
 
+        verdict.textContent = adjustVerdict(verdict.textContent, "6", ORDER, NAMES);
         var list = $("sumList");
         list.innerHTML = "";
-        ORDER.forEach(function(id){
+        vis.forEach(function(id){
           var st = state[id];
           var li = document.createElement("li");
           var name = document.createElement("span");
@@ -168,6 +231,7 @@
           li.appendChild(name); li.appendChild(sc); li.appendChild(chip);
           list.appendChild(li);
         });
+        updateSummaryStatics("6", ORDER, NAMES, visMax);
       }
 
       /* ================= TIỆN ÍCH HOẠT ĐỘNG ================= */
@@ -204,34 +268,40 @@
       }
 
       function updateSummary7(){
-        var total = ORDER7.reduce(function(s, id){ return s + state7[id].score; }, 0);
-        var done = ORDER7.filter(function(id){ return state7[id].done; }).length;
+        var vis = visibleOrder("7", ORDER7);
+        var visMax = vis.reduce(function(s, id){ return s + MAXES7[id]; }, 0);
+        var total = vis.reduce(function(s, id){ return s + state7[id].score; }, 0);
+        var done = vis.filter(function(id){ return state7[id].done; }).length;
+        var totalAct = vis.length;
         $("scoreNow7").textContent = fmt(total);
-        $("scoreTrack7").style.width = (total / TOTAL_MAX7 * 100) + "%";
-        $("scoreDone7").textContent = "Đã hoàn thành " + done + "/" + TOTAL_ACT7 + " hoạt động";
-        $("sumTotal7").textContent = String(TOTAL_ACT7);
+        $("scoreTrack7").style.width = (visMax ? (total / visMax * 100) : 0) + "%";
+        $("scoreDone7").textContent = "Đã hoàn thành " + done + "/" + totalAct + " hoạt động";
+        $("sumTotal7").textContent = String(totalAct);
         $("sumDone7").textContent = String(done);
         $("sumScore7").textContent = fmt(total);
-        $("sumPct7").textContent = Math.round(done / TOTAL_ACT7 * 100) + "%";
+        $("sumPct7").textContent = (totalAct ? Math.round(done / totalAct * 100) : 0) + "%";
 
         var verdict = $("sumVerdict7");
-        if (done === 0){
+        if (totalAct === 0){
+          verdict.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+        } else if (done === 0){
           verdict.textContent = "Hãy hoàn thành các hoạt động trong bài để nhận xét kết quả học tập.";
-        } else if (done < TOTAL_ACT7){
-          verdict.textContent = "Em đã hoàn thành " + done + "/" + TOTAL_ACT7 + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
-        } else if (total >= TOTAL_MAX7 * 0.9){
+        } else if (done < totalAct){
+          verdict.textContent = "Em đã hoàn thành " + done + "/" + totalAct + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
+        } else if (total >= visMax * 0.9){
           verdict.textContent = "Xuất sắc! Em đã nắm vững kiến thức của cả 3 bài: mạng xã hội, ứng xử trên mạng và làm quen với phần mềm bảng tính.";
-        } else if (total >= TOTAL_MAX7 * 0.75){
+        } else if (total >= visMax * 0.75){
           verdict.textContent = "Tốt! Em đã hiểu phần lớn nội dung của 3 bài. Hãy xem lại giải thích ở những câu chưa đúng để nắm chắc hơn.";
-        } else if (total >= TOTAL_MAX7 * 0.5){
+        } else if (total >= visMax * 0.5){
           verdict.textContent = "Đạt yêu cầu cơ bản. Em nên đọc lại các hộp GHI VÀO VỞ và phần giải thích của các hoạt động chưa đạt tối đa.";
         } else {
           verdict.textContent = "Cần cố gắng thêm. Hãy học lại từng bài, chú ý các hộp GHI VÀO VỞ, rồi trao đổi với bạn hoặc thầy cô ở những chỗ chưa hiểu.";
         }
 
+        verdict.textContent = adjustVerdict(verdict.textContent, "7", ORDER7, NAMES7);
         var list = $("sumList7");
         list.innerHTML = "";
-        ORDER7.forEach(function(id){
+        vis.forEach(function(id){
           var st = state7[id];
           var li = document.createElement("li");
           var name = document.createElement("span");
@@ -247,37 +317,44 @@
           li.appendChild(name); li.appendChild(sc); li.appendChild(chip);
           list.appendChild(li);
         });
+        updateSummaryStatics("7", ORDER7, NAMES7, visMax);
       }
 
       function updateSummary8(){
-        var total = ORDER8.reduce(function(s, id){ return s + state8[id].score; }, 0);
-        var done = ORDER8.filter(function(id){ return state8[id].done; }).length;
+        var vis = visibleOrder("8", ORDER8);
+        var visMax = vis.reduce(function(s, id){ return s + MAXES8[id]; }, 0);
+        var total = vis.reduce(function(s, id){ return s + state8[id].score; }, 0);
+        var done = vis.filter(function(id){ return state8[id].done; }).length;
+        var totalAct = vis.length;
         $("scoreNow8").textContent = fmt(total);
-        $("scoreTrack8").style.width = (total / TOTAL_MAX8 * 100) + "%";
-        $("scoreDone8").textContent = "Đã hoàn thành " + done + "/" + TOTAL_ACT8 + " hoạt động";
-        $("sumTotal8").textContent = String(TOTAL_ACT8);
+        $("scoreTrack8").style.width = (visMax ? (total / visMax * 100) : 0) + "%";
+        $("scoreDone8").textContent = "Đã hoàn thành " + done + "/" + totalAct + " hoạt động";
+        $("sumTotal8").textContent = String(totalAct);
         $("sumDone8").textContent = String(done);
         $("sumScore8").textContent = fmt(total);
-        $("sumPct8").textContent = Math.round(done / TOTAL_ACT8 * 100) + "%";
+        $("sumPct8").textContent = (totalAct ? Math.round(done / totalAct * 100) : 0) + "%";
 
         var verdict = $("sumVerdict8");
-        if (done === 0){
+        if (totalAct === 0){
+          verdict.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+        } else if (done === 0){
           verdict.textContent = "Hãy hoàn thành các hoạt động trong bài để nhận xét kết quả học tập.";
-        } else if (done < TOTAL_ACT8){
-          verdict.textContent = "Em đã hoàn thành " + done + "/" + TOTAL_ACT8 + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
-        } else if (total >= TOTAL_MAX8 * 0.9){
+        } else if (done < totalAct){
+          verdict.textContent = "Em đã hoàn thành " + done + "/" + totalAct + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
+        } else if (total >= visMax * 0.9){
           verdict.textContent = "Xuất sắc! Em đã nắm vững kiến thức của cả 3 bài: từ thuật toán đến chương trình, biểu diễn dữ liệu và cấu trúc điều khiển.";
-        } else if (total >= TOTAL_MAX8 * 0.75){
+        } else if (total >= visMax * 0.75){
           verdict.textContent = "Tốt! Em đã hiểu phần lớn nội dung của 3 bài. Hãy xem lại giải thích ở những câu chưa đúng để nắm chắc hơn.";
-        } else if (total >= TOTAL_MAX8 * 0.5){
+        } else if (total >= visMax * 0.5){
           verdict.textContent = "Đạt yêu cầu cơ bản. Em nên đọc lại các hộp GHI VÀO VỞ và phần giải thích của các hoạt động chưa đạt tối đa.";
         } else {
           verdict.textContent = "Cần cố gắng thêm. Hãy học lại từng bài, chú ý các hộp GHI VÀO VỞ, rồi trao đổi với bạn hoặc thầy cô ở những chỗ chưa hiểu.";
         }
 
+        verdict.textContent = adjustVerdict(verdict.textContent, "8", ORDER8, NAMES8);
         var list = $("sumList8");
         list.innerHTML = "";
-        ORDER8.forEach(function(id){
+        vis.forEach(function(id){
           var st = state8[id];
           var li = document.createElement("li");
           var name = document.createElement("span");
@@ -293,37 +370,44 @@
           li.appendChild(name); li.appendChild(sc); li.appendChild(chip);
           list.appendChild(li);
         });
+        updateSummaryStatics("8", ORDER8, NAMES8, visMax);
       }
 
       function updateSummary10(){
-        var total = ORDER10.reduce(function(s, id){ return s + state10[id].score; }, 0);
-        var done = ORDER10.filter(function(id){ return state10[id].done; }).length;
+        var vis = visibleOrder("10", ORDER10);
+        var visMax = vis.reduce(function(s, id){ return s + MAXES10[id]; }, 0);
+        var total = vis.reduce(function(s, id){ return s + state10[id].score; }, 0);
+        var done = vis.filter(function(id){ return state10[id].done; }).length;
+        var totalAct = vis.length;
         $("scoreNow10").textContent = fmt(total);
-        $("scoreTrack10").style.width = (total / TOTAL_MAX10 * 100) + "%";
-        $("scoreDone10").textContent = "Đã hoàn thành " + done + "/" + TOTAL_ACT10 + " hoạt động";
-        $("sumTotal10").textContent = String(TOTAL_ACT10);
+        $("scoreTrack10").style.width = (visMax ? (total / visMax * 100) : 0) + "%";
+        $("scoreDone10").textContent = "Đã hoàn thành " + done + "/" + totalAct + " hoạt động";
+        $("sumTotal10").textContent = String(totalAct);
         $("sumDone10").textContent = String(done);
         $("sumScore10").textContent = fmt(total);
-        $("sumPct10").textContent = Math.round(done / TOTAL_ACT10 * 100) + "%";
+        $("sumPct10").textContent = (totalAct ? Math.round(done / totalAct * 100) : 0) + "%";
 
         var verdict = $("sumVerdict10");
-        if (done === 0){
+        if (totalAct === 0){
+          verdict.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+        } else if (done === 0){
           verdict.textContent = "Hãy hoàn thành các hoạt động trong bài để nhận xét kết quả học tập.";
-        } else if (done < TOTAL_ACT10){
-          verdict.textContent = "Em đã hoàn thành " + done + "/" + TOTAL_ACT10 + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
-        } else if (total >= TOTAL_MAX10 * 0.9){
+        } else if (done < totalAct){
+          verdict.textContent = "Em đã hoàn thành " + done + "/" + totalAct + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
+        } else if (total >= visMax * 0.9){
           verdict.textContent = "Xuất sắc! Em đã nắm vững kiến thức của cả 5 bài: ứng xử trên môi trường số và nghĩa vụ tôn trọng bản quyền, phần mềm thiết kế đồ họa, bổ sung các đối tượng đồ họa, làm việc với đối tượng đường và văn bản, hoàn thiện hình ảnh đồ họa.";
-        } else if (total >= TOTAL_MAX10 * 0.75){
+        } else if (total >= visMax * 0.75){
           verdict.textContent = "Tốt! Em đã hiểu phần lớn nội dung của 5 bài. Hãy xem lại giải thích ở những câu chưa đúng để nắm chắc hơn.";
-        } else if (total >= TOTAL_MAX10 * 0.5){
+        } else if (total >= visMax * 0.5){
           verdict.textContent = "Đạt yêu cầu cơ bản. Em nên đọc lại các hộp GHI VÀO VỞ và phần giải thích của các hoạt động chưa đạt tối đa.";
         } else {
           verdict.textContent = "Cần cố gắng thêm. Hãy học lại từng bài, chú ý các hộp GHI VÀO VỞ, rồi trao đổi với bạn hoặc thầy cô ở những chỗ chưa hiểu.";
         }
 
+        verdict.textContent = adjustVerdict(verdict.textContent, "10", ORDER10, NAMES10);
         var list = $("sumList10");
         list.innerHTML = "";
-        ORDER10.forEach(function(id){
+        vis.forEach(function(id){
           var st = state10[id];
           var li = document.createElement("li");
           var name = document.createElement("span");
@@ -339,37 +423,44 @@
           li.appendChild(name); li.appendChild(sc); li.appendChild(chip);
           list.appendChild(li);
         });
+        updateSummaryStatics("10", ORDER10, NAMES10, visMax);
       }
 
       function updateSummary11(){
-        var total = ORDER11.reduce(function(s, id){ return s + state11[id].score; }, 0);
-        var done = ORDER11.filter(function(id){ return state11[id].done; }).length;
+        var vis = visibleOrder("11", ORDER11);
+        var visMax = vis.reduce(function(s, id){ return s + MAXES11[id]; }, 0);
+        var total = vis.reduce(function(s, id){ return s + state11[id].score; }, 0);
+        var done = vis.filter(function(id){ return state11[id].done; }).length;
+        var totalAct = vis.length;
         $("scoreNow11").textContent = fmt(total);
-        $("scoreTrack11").style.width = (total / TOTAL_MAX11 * 100) + "%";
-        $("scoreDone11").textContent = "Đã hoàn thành " + done + "/" + TOTAL_ACT11 + " hoạt động";
-        $("sumTotal11").textContent = String(TOTAL_ACT11);
+        $("scoreTrack11").style.width = (visMax ? (total / visMax * 100) : 0) + "%";
+        $("scoreDone11").textContent = "Đã hoàn thành " + done + "/" + totalAct + " hoạt động";
+        $("sumTotal11").textContent = String(totalAct);
         $("sumDone11").textContent = String(done);
         $("sumScore11").textContent = fmt(total);
-        $("sumPct11").textContent = Math.round(done / TOTAL_ACT11 * 100) + "%";
+        $("sumPct11").textContent = (totalAct ? Math.round(done / totalAct * 100) : 0) + "%";
 
         var verdict = $("sumVerdict11");
-        if (done === 0){
+        if (totalAct === 0){
+          verdict.textContent = "Hiện chưa có bài nào đang mở trong lớp này, nên chưa có kết quả tổng kết. Em hãy quay lại sau nhé.";
+        } else if (done === 0){
           verdict.textContent = "Hãy hoàn thành các hoạt động trong bài để nhận xét kết quả học tập.";
-        } else if (done < TOTAL_ACT11){
-          verdict.textContent = "Em đã hoàn thành " + done + "/" + TOTAL_ACT11 + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
-        } else if (total >= TOTAL_MAX11 * 0.9){
+        } else if (done < totalAct){
+          verdict.textContent = "Em đã hoàn thành " + done + "/" + totalAct + " hoạt động. Hãy làm tiếp các hoạt động còn lại để có nhận xét đầy đủ về bài học.";
+        } else if (total >= visMax * 0.9){
           verdict.textContent = "Xuất sắc! Em đã nắm vững kiến thức của cả 5 bài: thực hành nâng cao sử dụng thư điện tử và mạng xã hội, giao tiếp an toàn trên Internet, lưu trữ dữ liệu và khai thác thông tin phục vụ quản lí, cơ sở dữ liệu, hệ quản trị cơ sở dữ liệu và hệ cơ sở dữ liệu.";
-        } else if (total >= TOTAL_MAX11 * 0.75){
+        } else if (total >= visMax * 0.75){
           verdict.textContent = "Tốt! Em đã hiểu phần lớn nội dung của 5 bài. Hãy xem lại giải thích ở những câu chưa đúng để nắm chắc hơn.";
-        } else if (total >= TOTAL_MAX11 * 0.5){
+        } else if (total >= visMax * 0.5){
           verdict.textContent = "Đạt yêu cầu cơ bản. Em nên đọc lại các hộp GHI VÀO VỞ và phần giải thích của các hoạt động chưa đạt tối đa.";
         } else {
           verdict.textContent = "Cần cố gắng thêm. Hãy học lại từng bài, chú ý các hộp GHI VÀO VỞ, rồi trao đổi với bạn hoặc thầy cô ở những chỗ chưa hiểu.";
         }
 
+        verdict.textContent = adjustVerdict(verdict.textContent, "11", ORDER11, NAMES11);
         var list = $("sumList11");
         list.innerHTML = "";
-        ORDER11.forEach(function(id){
+        vis.forEach(function(id){
           var st = state11[id];
           var li = document.createElement("li");
           var name = document.createElement("span");
@@ -385,6 +476,7 @@
           li.appendChild(name); li.appendChild(sc); li.appendChild(chip);
           list.appendChild(li);
         });
+        updateSummaryStatics("11", ORDER11, NAMES11, visMax);
       }
 
       /* ================= TRẮC NGHIỆM CHỌN 1 ĐÁP ÁN ================= */
@@ -1423,6 +1515,10 @@
       });
       rvBankNoteText();
 
+      /* Quản lý (admin): làm mới cả 5 bảng Tổng kết sau mỗi lần bật/tắt bài. */
+      window.THOC_REFRESH_SUMMARIES = function(){
+        updateSummary(); updateSummary7(); updateSummary8(); updateSummary10(); updateSummary11();
+      };
       updateSummary();
       updateSummary7();
       updateSummary8();
