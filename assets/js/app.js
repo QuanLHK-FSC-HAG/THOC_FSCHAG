@@ -8,7 +8,7 @@
 (function () {
   "use strict";
   window.THOC_DATA = window.THOC_DATA || {};
-  ["6", "7", "8", "10", "11"].forEach(function (g) {
+  ["6", "7", "8", "9", "10", "11", "12"].forEach(function (g) {
     var panel = document.getElementById("panel-" + g);
     if (panel && window.THOC_DATA[g])
       panel.innerHTML = window.THOC_DATA[g].lessonsHtml;
@@ -33,8 +33,10 @@
         if (g === "6") return "Tin học 6 · Sách Kết nối tri thức với cuộc sống — bài giảng, hoạt động tương tác và bảng tổng kết điểm của Lớp 6.";
         if (g === "7") return "Tin học 7 · Sách Kết nối tri thức với cuộc sống — bài giảng, hoạt động tương tác và bảng tổng kết điểm của Lớp 7.";
         if (g === "8") return "Tin học 8 · Sách Kết nối tri thức với cuộc sống — bài giảng, hoạt động tương tác và bảng tổng kết điểm của Lớp 8.";
+        if (g === "9") return "Tin học 9 · Sách Kết nối tri thức với cuộc sống — lớp này chỉ có phần ôn tập cuối học kì 1 (12 bài, 499 câu), không có bài giảng trên web.";
         if (g === "10") return "Tin học 10 · Sách Kết nối tri thức với cuộc sống — bài giảng, hoạt động tương tác và bảng tổng kết điểm của Lớp 10.";
         if (g === "11") return "Tin học 11 · Sách Kết nối tri thức với cuộc sống — bài giảng, hoạt động tương tác và bảng tổng kết điểm của Lớp 11.";
+        if (g === "12") return "Tin học 12 · Sách Kết nối tri thức với cuộc sống — lớp này chỉ có phần ôn tập (14 bài, 569 câu, nhánh Tin học ứng dụng), không có bài giảng trên web.";
         return "Bài giảng của Lớp " + g + " sẽ được đưa vào theo thứ tự bài khi giáo viên hoàn thành.";
       }
       qsa(".grade-btn").forEach(function(btn){
@@ -982,7 +984,7 @@
 
       /* Hoạt động từng lớp — dữ liệu nằm trong data/gradeX/data.js
          (THOC_DATA[g].activities), giữ nguyên thứ tự gọi như bản gốc. */
-      ["6", "7", "8", "10", "11"].forEach(function (g) {
+      ["6", "7", "8", "9", "10", "11", "12"].forEach(function (g) {
         var acts = (window.THOC_DATA[g] && window.THOC_DATA[g].activities) || [];
         acts.forEach(function (a) {
           var fn = { buildQuiz: buildQuiz, buildSingle: buildSingle,
@@ -991,7 +993,7 @@
           if (fn) fn.apply(null, [a.id].concat(a.args));
         });
       });var REVIEW_BANK = {};
-      ["6", "7", "8", "10", "11"].forEach(function (g) {
+      ["6", "7", "8", "9", "10", "11", "12"].forEach(function (g) {
         if (window.THOC_DATA[g] && window.THOC_DATA[g].reviewBank)
           REVIEW_BANK[g] = window.THOC_DATA[g].reviewBank;
       });
@@ -1095,18 +1097,21 @@
       }
 
       /* Bài của một câu hỏi: đọc "Bài X" từ act.src ("Bài 1 · ..." /
-         "Bài 1.1 · ..."). Câu nào không đọc được số bài thì không thuộc
-         bài nào — bộ lọc sẽ loại nó ra. */
+         "Bài 1.1 · ..." / "Bài 9a · ..."). Số bài giữ cả hậu tố chữ
+         (9a, 9b, 10a, 10b) để không gộp hai bài khác nhau thành một.
+         Câu nào không đọc được số bài thì không thuộc bài nào — bộ lọc
+         sẽ loại nó ra. */
       function rvLessonNum(g, q){
         var bank = REVIEW_BANK[g];
         if (!bank || !bank.acts) return null;
         var act = bank.acts[q.a];
         if (!act || !act.src) return null;
-        var m = String(act.src).match(/^Bài\s+([\d.]+)/);
+        var m = String(act.src).match(/^Bài\s+([\d.]+[a-z]?)/);
         return m ? m[1] : null;
       }
       /* Danh sách bài của lớp, xếp theo số bài (1, 2, ... 12; 1.1, 1.2,
-         2.8 ...). Tên bài lấy từ hoạt động md của bài đó
+         2.8 ...; 9a, 9b, 10a, 10b — hậu tố chữ xếp sau số, a trước b).
+         Tên bài lấy từ hoạt động md của bài đó
          ("Bài X · Tên bài · Dạng ..."). */
       function rvLessonList(g){
         var bank = REVIEW_BANK[g];
@@ -1115,16 +1120,19 @@
         Object.keys(bank.acts).forEach(function(k){
           var act = bank.acts[k];
           if (!act || !act.src) return;
-          var m = String(act.src).match(/^Bài\s+([\d.]+)\s*·\s*([^·]+)/);
+          var m = String(act.src).match(/^Bài\s+([\d.]+[a-z]?)\s*·\s*([^·]+)/);
           if (!m) return;
           nums[m[1]] = true;
           if (k.indexOf("md") === 0 && !names[m[1]]) names[m[1]] = m[2].trim();
         });
         return Object.keys(nums).sort(function(a, b){
-          var pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+          var pa = a.split("."), pb = b.split(".");
           for (var i = 0; i < Math.max(pa.length, pb.length); i++){
-            var d = (pa[i] || 0) - (pb[i] || 0);
+            var sa = pa[i] || "", sb = pb[i] || "";
+            var d = (parseInt(sa, 10) || 0) - (parseInt(sb, 10) || 0);
             if (d) return d;
+            var xa = (sa.match(/[a-z]+$/) || [""])[0], xb = (sb.match(/[a-z]+$/) || [""])[0];
+            if (xa !== xb) return xa < xb ? -1 : 1;
           }
           return 0;
         }).map(function(num){
@@ -1784,15 +1792,17 @@
         "panel-6":  ["sec-bai", "sec-bai5", "sec-bai6", "sec-bai7"],
         "panel-7":  ["sec-g7-bai4", "sec-g7-bai5", "sec-g7-bai6"],
         "panel-8":  ["sec-g8-bai12", "sec-g8-bai13", "sec-g8-bai14"],
+        "panel-9":  [],
         "panel-10": ["sec-g10-bai311", "sec-g10-bai412", "sec-g10-bai413", "sec-g10-bai414", "sec-g10-bai415"],
-        "panel-11": ["sec-g11-bai8", "sec-g11-bai9", "sec-g11-bai10", "sec-g11-bai11", "sec-g11-bai12"]
+        "panel-11": ["sec-g11-bai8", "sec-g11-bai9", "sec-g11-bai10", "sec-g11-bai11", "sec-g11-bai12"],
+        "panel-12": []
       };
-      var GRADES = ["6", "7", "8", "10", "11"];
+      var GRADES = ["6", "7", "8", "9", "10", "11", "12"];
 
       /* Tóm tắt từng bài — chỉ tóm tắt lại ý chính đã có trong bài gốc
          (hộp Kết luận và hộp GHI VÀO VỞ của chính bài đó). */
       var SUMMARIES = {};
-      ["6", "7", "8", "10", "11"].forEach(function (g) {
+      ["6", "7", "8", "9", "10", "11", "12"].forEach(function (g) {
         var s = window.THOC_DATA[g] && window.THOC_DATA[g].summaries;
         if (s) Object.keys(s).forEach(function (k) { SUMMARIES[k] = s[k]; });
       });
@@ -2141,7 +2151,12 @@
       qsa(".grade-btn").forEach(function(btn){
         btn.addEventListener("click", function(){
           var g = btn.getAttribute("data-grade");
-          if (!LESSONS[g] || !LESSONS[g].length) return;
+          if (!LESSONS[g] || !LESSONS[g].length){
+            /* Lớp chỉ ôn tập (không có bài giảng): mở thẳng phần Ôn tập. */
+            activeGrade = g;
+            setMode("review");
+            return;
+          }
           buildSidebar(g);
           if (mode === "review"){
             activeGrade = g;

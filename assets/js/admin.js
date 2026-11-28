@@ -31,14 +31,16 @@
   var LS_AUTH = "thocAdminAuth";
   var SS_AUTH = "thocAdminAuth";
   var LS_HIDDEN = "thocLessonsHidden";
-  var GRADES = ["6", "7", "8", "10", "11"];
+  var GRADES = ["6", "7", "8", "9", "10", "11", "12"];
   /* Bản đồ số bài → mã section, dùng dự phòng khi không đọc được từ khung bài. */
   var NUM_TO_KEY_FALLBACK = {
     "6":  { "4": "sec-bai",    "5": "sec-bai5",    "6": "sec-bai6",    "7": "sec-bai7" },
     "7":  { "4": "sec-g7-bai4",  "5": "sec-g7-bai5",  "6": "sec-g7-bai6" },
     "8":  { "12": "sec-g8-bai12", "13": "sec-g8-bai13", "14": "sec-g8-bai14" },
+    "9":  {},
     "10": { "3.11": "sec-g10-bai311", "4.12": "sec-g10-bai412", "4.13": "sec-g10-bai413", "4.14": "sec-g10-bai414", "4.15": "sec-g10-bai415" },
-    "11": { "8": "sec-g11-bai8", "9": "sec-g11-bai9", "10": "sec-g11-bai10", "11": "sec-g11-bai11", "12": "sec-g11-bai12" }
+    "11": { "8": "sec-g11-bai8", "9": "sec-g11-bai9", "10": "sec-g11-bai10", "11": "sec-g11-bai11", "12": "sec-g11-bai12" },
+    "12": {}
   };
 
   /* ---------------- Tiện ích DOM ---------------- */
@@ -173,7 +175,7 @@
         Object.keys(bank.acts).forEach(function (aid){
           var src = bank.acts[aid] && bank.acts[aid].src;
           if (!src) return;
-          var m = String(src).match(/^Bài\s+([\d.]+)\s*·\s*([^·]+?)\s*·\s*Dạng\s*[12]\s*$/);
+          var m = String(src).match(/^Bài\s+([\d.]+[a-z]?)\s*·\s*([^·]+?)\s*·\s*Dạng\s*[12]\s*$/);
           if (!m) return;
           if (!bankNames[m[1]]) bankNames[m[1]] = m[2].replace(/\s+/g, " ").trim();
         });
@@ -189,7 +191,16 @@
        bài học (bài chỉ-ngân-hàng xen kẽ đúng vị trí của nó). */
     var gradeOrder = {};
     GRADES.forEach(function (g, i){ gradeOrder[g] = i; });
-    function numParts(n){ return String(n == null ? "9999" : n).split(".").map(function (x){ return parseInt(x, 10) || 0; }); }
+    function numParts(n){
+      /* Số bài có thể có hậu tố chữ ("9a", "9b", "10a", "10b"): tách mỗi
+         đoạn thành [số, mã hậu tố] để "9a" < "9b" < "10a" < "10b". */
+      var out = [];
+      String(n == null ? "9999" : n).split(".").forEach(function (x){
+        out.push(parseInt(x, 10) || 0);
+        out.push(((x.match(/[a-z]+$/) || [""])[0]).charCodeAt(0) || 0);
+      });
+      return out;
+    }
     LESSONS_LIST.sort(function (a, b){
       if (gradeOrder[a.grade] !== gradeOrder[b.grade]) return gradeOrder[a.grade] - gradeOrder[b.grade];
       var pa = numParts(a.num), pb = numParts(b.num);
@@ -226,7 +237,7 @@
       if (!bank || !bank.acts) return null;
       var act = bank.acts[q.a];
       if (!act || !act.src) return null;
-      var m = String(act.src).match(/^Bài\s+([\d.]+)/);
+      var m = String(act.src).match(/^Bài\s+([\d.]+[a-z]?)/);
       if (!m) return null;
       var byNum = NUM_TO_KEY[String(g)] || {};
       return byNum[m[1]] || null;
