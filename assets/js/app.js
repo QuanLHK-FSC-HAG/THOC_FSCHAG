@@ -1839,6 +1839,18 @@
       layout.appendChild(sidebar);
       layout.appendChild(mainCol);
       mainCol.appendChild(frameBar);
+      /* Thanh chuyển tính năng trên điện thoại: nút Bài giảng / Ôn tập
+         nằm ngay trên khung bài học. Menu bên (chứa nút chuyển chế độ)
+         bị cuộn khuất trên màn hình nhỏ sau khi chọn lớp, nên học sinh
+         dùng điện thoại không thấy đường vào Ôn tập. Thanh này chỉ hiện
+         trên mobile (CSS), máy tính giữ nguyên menu bên. */
+      var modeBar = document.createElement("div");
+      modeBar.className = "mode-bar";
+      modeBar.innerHTML =
+        '<span class="mode-bar-label">Chọn tính năng:</span>' +
+        '<button type="button" class="mode-bar-btn" data-mode="lessons" aria-current="true">Bài giảng</button>' +
+        '<button type="button" class="mode-bar-btn" data-mode="review" aria-current="false">Ôn tập</button>';
+      mainCol.insertBefore(modeBar, frameBar);
       wrapEl.insertBefore(layout, firstPanel);
       qsa(".grade-panel").forEach(function(p){ mainCol.appendChild(p); });
       /* Ôn tập cuối HK1 giờ là tính năng của menu chọn lớp (nằm trong
@@ -2022,9 +2034,7 @@
       function setMode(m){
         if (m !== "lessons" && m !== "review") return;
         mode = m;
-        qsa(".side-mode-btn", sideModes).forEach(function(b){
-          b.setAttribute("aria-current", b.getAttribute("data-mode") === m ? "true" : "false");
-        });
+        syncModeButtons();
         layout.classList.toggle("mode-review", m === "review");
         if (m === "review"){
           if (activeGrade) syncReviewGrade(activeGrade);
@@ -2035,7 +2045,27 @@
           scrollToFrameTop();
         }
       }
+      /* Đồng bộ trạng thái hai bộ nút chuyển chế độ (menu bên + thanh
+         mobile): nút đang chọn (aria-current) và khóa nút Bài giảng
+         khi lớp đang chọn chỉ có ôn tập (không có bài giảng) để học
+         sinh không bấm nhầm sang màn hình trống. */
+      function syncModeButtons(){
+        var reviewOnly = !!(activeGrade && !(LESSONS[activeGrade] && LESSONS[activeGrade].length));
+        qsa(".side-mode-btn", sideModes).forEach(function(b){
+          b.setAttribute("aria-current", b.getAttribute("data-mode") === mode ? "true" : "false");
+          b.disabled = reviewOnly && b.getAttribute("data-mode") === "lessons";
+        });
+        if (modeBar){
+          qsa(".mode-bar-btn", modeBar).forEach(function(b){
+            b.setAttribute("aria-current", b.getAttribute("data-mode") === mode ? "true" : "false");
+            b.disabled = reviewOnly && b.getAttribute("data-mode") === "lessons";
+          });
+        }
+      }
       qsa(".side-mode-btn", sideModes).forEach(function(b){
+        b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
+      });
+      qsa(".mode-bar-btn", modeBar).forEach(function(b){
         b.addEventListener("click", function(){ setMode(b.getAttribute("data-mode")); });
       });
       var frameTitle = $("frameTitle"), prevBtn = $("prevLesson"), nextBtn = $("nextLesson");
@@ -2166,6 +2196,7 @@
           } else {
             showLesson(g, current[g] || LESSONS[g][0].key, true);
           }
+          syncModeButtons();
         });
       });
 

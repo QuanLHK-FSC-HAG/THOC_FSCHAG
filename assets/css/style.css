@@ -384,6 +384,20 @@
       .side-mode-btn[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
       @media (prefers-color-scheme: dark){.side-mode-btn[aria-current="true"]{color:#08131f}}
       .side-mode-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+      .side-mode-btn:disabled{opacity:.45;cursor:not-allowed}
+      /* Thanh chuyển tính năng trên điện thoại: chỉ hiện khi màn hình
+         hẹp (lúc menu bên bị cuộn khuất); máy tính giữ nguyên menu bên. */
+      .mode-bar{display:none}
+      @media (max-width:900px){
+        .mode-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow)}
+        .mode-bar-label{font-weight:800;font-size:14px}
+        .mode-bar-btn{flex:1;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 8px;font:inherit;font-weight:700;font-size:14.5px;cursor:pointer;min-height:44px}
+        .mode-bar-btn:hover{border-color:var(--blue)}
+        .mode-bar-btn[aria-current="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+        .mode-bar-btn:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+        .mode-bar-btn:disabled{opacity:.45;cursor:not-allowed}
+      }
+      @media (prefers-color-scheme: dark){.mode-bar-btn[aria-current="true"]{color:#08131f}}
       /* Chế độ Ôn tập: cột nội dung chỉ hiện phần ôn tập của lớp đang
          chọn (khung bài học + các panel bài giảng tạm ẩn); menu bên
          ẩn danh sách bài, chỉ còn chọn lớp và chuyển tính năng. */

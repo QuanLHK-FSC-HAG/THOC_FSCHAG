@@ -331,10 +331,31 @@
     GRADES.forEach(function (g){
       var n = visibleCount(g);
       var hero = document.querySelector('.grade-btn[data-grade="' + g + '"] small');
-      if (hero) hero.textContent = n + " bài giảng";
       var side = document.querySelector('.side-grade-btn[data-sgrade="' + g + '"] small');
+      /* Lớp chỉ ôn tập (không có khung bài giảng nào): nút lớp ghi rõ
+         "Chỉ ôn tập · N câu" thay cho "0 bài giảng" / "0 bài", để học
+         sinh biết bấm vào là mở thẳng phần ôn tập. */
+      if (isReviewOnlyGrade(g)){
+        var label = "Chỉ ôn tập · " + reviewBankTotal(g) + " câu";
+        if (hero) hero.textContent = label;
+        if (side) side.textContent = label;
+        return;
+      }
+      if (hero) hero.textContent = n + " bài giảng";
       if (side) side.textContent = n + " bài";
     });
+  }
+  /* Lớp chỉ ôn tập = không có bài nào có khung bài học (chỉ có bài
+     trong ngân hàng ôn tập). Tổng số câu lấy từ ngân hàng của lớp. */
+  function isReviewOnlyGrade(g){
+    var framed = 0;
+    LESSONS_LIST.forEach(function (L){ if (L.grade === g && !L.bankOnly) framed++; });
+    if (framed > 0) return false;
+    return reviewBankTotal(g) > 0;
+  }
+  function reviewBankTotal(g){
+    var d = window.THOC_DATA && window.THOC_DATA[g];
+    return (d && d.reviewBank && d.reviewBank.qs) ? d.reviewBank.qs.length : 0;
   }
   function applyVisibility(){
     LESSONS_LIST.forEach(function (L){
